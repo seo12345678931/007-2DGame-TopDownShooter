@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 7a07118164e02dd42b470dc5bc5ec5dd
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 275888
+  packageName: Sci-Fi 2D Top-Down Shooter Graphics
+  packageVersion: 1.1
+  assetPath: Assets/Sci-Fi 2D Top-Down Shooter Graphics by valentint/Graphics/Legs/Player/Animations/Player_Legs.controller
+  uploadId: 695480

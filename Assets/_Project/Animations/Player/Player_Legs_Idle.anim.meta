@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 382113b98df90544d84072a676fc1a74
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 275888
+  packageName: Sci-Fi 2D Top-Down Shooter Graphics
+  packageVersion: 1.1
+  assetPath: Assets/Sci-Fi 2D Top-Down Shooter Graphics by valentint/Graphics/Legs/Player/Animations/Player_Legs_Idle.anim
+  uploadId: 695480
