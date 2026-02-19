@@ -8,31 +8,33 @@ namespace _2DTopDown
 {
     public class GameManager_Project : MonoBehaviour
     {
-        [Header("°ÔÀÓ UI")]
+        [Header("ê²Œì„ UI")]
         public TextMeshProUGUI TimerTxt;
         public TextMeshProUGUI ScoreTxt;
         public TextMeshProUGUI WeaponNameTxt;
         public Image WeaponIcon;
         public Sprite[] WeaponIcons;
 
-        [Header("¹«±â ¼±ÅÃ Åä±Û")]
+        [Header("ë¬´ê¸° ì„ íƒ í† ê¸€")]
         public Toggle[] WeaponSelectToggles;
 
-        [Header("Ã¼·Â 0¿¡ µµ´Ş ½Ã °ÔÀÓ¿À¹ö ¼³Á¤")]
+        [Header("ì²´ë ¥ 0ì— ë„ë‹¬ ì‹œ ê²Œì„ì˜¤ë²„ ì„¤ì •")]
         public bool gameOver = false;
 
-        // ½Ì±ÛÅæ ÀÎ½ºÅÏ½º ¼³Á¤
+        private int currentScore = 0;
+
+        // ì‹±ê¸€í†¤ ì¸ìŠ¤í„´ìŠ¤ ì„¤ì •
         public static GameManager_Project instance;
         void Awake()
         {
-            // ½Ì±ÛÅæ ÃÊ±âÈ­
+            // ì‹±ê¸€í†¤ ì´ˆê¸°í™”
             if (instance == null) instance = this;
         }
 
         // Start is called once before the first execution of Update after the MonoBehaviour is created
         void Start()
         {
-
+            ScoreTxt.text = $"Score: {currentScore}";
         }
 
         // Update is called once per frame
@@ -58,14 +60,20 @@ namespace _2DTopDown
             }
         }
 
-        // ¹İº¹µÇ´Â ÄÚµå¸¦ ÁÙÀÌ±â À§ÇÑ ÇïÆÛ ÇÔ¼öÀÔ´Ï´Ù.
+        // ë°˜ë³µë˜ëŠ” ì½”ë“œë¥¼ ì¤„ì´ê¸° ìœ„í•œ í—¬í¼ í•¨ìˆ˜ì…ë‹ˆë‹¤.
         private void SetToggleState(int index)
         {
             for (int i = 0; i < WeaponSelectToggles.Length; i++)
             {
-                // ÀÎµ¦½º°¡ ¸ÂÀ¸¸é true, ¾Æ´Ï¸é false
+                // ì¸ë±ìŠ¤ê°€ ë§ìœ¼ë©´ true, ì•„ë‹ˆë©´ false
                 WeaponSelectToggles[i].isOn = (i == index);
             }
+        }
+
+        public void AddScore(int Point)
+        {
+            currentScore += Point;
+            ScoreTxt.text = $"Score: {currentScore}";
         }
     }
 }
