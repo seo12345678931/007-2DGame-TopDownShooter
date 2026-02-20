@@ -2,6 +2,7 @@ using TMPro;
 using Unity.Cinemachine;
 using UnityEngine;
 using UnityEngine.UI;
+using System.Collections;
 
 namespace _2DTopDown
 {
@@ -13,8 +14,7 @@ namespace _2DTopDown
             Knife = 0,
             Pistol = 1,
             Null = 2,
-            Rifle = 3,
-            ShotGun = 4
+            ItemWeapon
         }
         WeaponTypes CurrWeapon = WeaponTypes.Null;
 
@@ -25,8 +25,6 @@ namespace _2DTopDown
         [Header("체력")]
         public float maxHP;
         public float currentHP;
-        public Image HealthBar;
-        public TextMeshProUGUI HealthNum;
 
         [Header("애니메이션")]
         public Animator Anim;
@@ -53,13 +51,28 @@ namespace _2DTopDown
         // 근접무기 피해량 제어
         private float MeleeDamage = 50f;
 
-        // Start is called once before the first execution of Update after the MonoBehaviour is created
+        // 탄약량 제어.
+        // 무기종류는 Enum으로 분류되어 있어 public 함수로 따로 정할 수가 없는 상황이라
+        // 스크립트 private 함수로 각각 무기별로 제어하기로 결정
+        // 체력으로 따지면 AmmoCount => currentHP / AmmoCount_Max => maxHP
+        private float AmmoCount;
+        private float AmmoCount_Max;
+
+        public static Player instance; // 싱글톤 인스턴스 추가
+
+        private void Awake()
+        {
+            // 싱글톤 초기화
+            if (instance == null) instance = this;
+        }
+
         private void Start()
         {
             rb = GetComponent<Rigidbody>();
             currentHP = maxHP;
-            HealthBar.fillAmount = currentHP / maxHP;
-            HealthNum.text = $"{currentHP:F0} / {maxHP:F0}";
+            GameManager_Project.instance.HealthBar.color = GameManager_Project.instance.healthColor;
+            GameManager_Project.instance.HealthBar.fillAmount = currentHP / maxHP;
+            GameManager_Project.instance.HealthNum.text = $"{currentHP:F0} / {maxHP:F0}";
             SetWeapon(WeaponTypes.Knife);
         }
 
@@ -109,6 +122,12 @@ namespace _2DTopDown
                         Attack();
                     }
                     break;
+                case WeaponTypes.ItemWeapon:
+                    if(Input.GetMouseButton(0))
+                    {
+                        Attack();
+                    }
+                    break;
             }
 
             if (Input.GetKeyDown(KeyCode.Alpha1))
@@ -118,6 +137,15 @@ namespace _2DTopDown
             if (Input.GetKeyDown(KeyCode.Alpha2))
             {
                 SetWeapon(WeaponTypes.Pistol);
+            }
+            if (Input.GetKeyDown(KeyCode.Alpha3))
+            {
+                SetWeapon(WeaponTypes.ItemWeapon);
+            }
+            // (Pistol)권총사격 도중 재장전하기
+            if (Input.GetKeyDown(KeyCode.R))
+            {
+                TryReload();
             }
         }
 
@@ -146,7 +174,14 @@ namespace _2DTopDown
                         Anim.SetInteger("WeaponType", 0);
                         break;
                     case WeaponTypes.Pistol:
+                        AmmoCount = 7;
+                        AmmoCount_Max = 7;
+                        AmmoCount = AmmoCount_Max;
+                        GameManager_Project.instance.WeaponAmmoGuage.fillAmount = AmmoCount / AmmoCount_Max;
+                        GameManager_Project.instance.WeaponAmmoTxt.text = AmmoCount.ToString();
                         Anim.SetInteger("WeaponType", 1);
+                        break;
+                    case WeaponTypes.ItemWeapon:
                         break;
                 }
             }
@@ -156,26 +191,80 @@ namespace _2DTopDown
             }
         }
 
+        bool PistolReload = false; // 권총 재장전 중인지 확인하는 변수
         public void Attack()
         {
+            // 1. 재장전 중이면 공격 함수를 바로 빠져나감 (공격 불가)
+            if (PistolReload) return;
+
             switch (CurrWeapon)
             {
                 case WeaponTypes.Knife:
                     Invoke("DoHit", 0.2f);
                     WeaponAttackSFX[0].Play();
                     CancelInvoke("AttackOver");
-                    Invoke("AttackOver", 0.4f);
+                    Invoke("AttackOver", 0.6f);
                     break;
                 case WeaponTypes.Pistol:
+                    // 탄약소모를 확인하기 위한 UI 갱신
+                    AmmoCount--;
+                    GameManager_Project.instance.WeaponAmmoGuage.fillAmount = AmmoCount / AmmoCount_Max;
+                    GameManager_Project.instance.WeaponAmmoTxt.text = AmmoCount.ToString();
+
+                    // 투사체 발사
                     GameObject bullet = GameObject.Instantiate(proyectilePrefab, FireArmsPivot.position, FireArmsPivot.rotation) as GameObject;
-                    CamaraRecoil.GenerateImpulse();
                     bullet.transform.LookAt(mousePointer.transform);
                     bullet.transform.Rotate(0, Random.Range(-5.5f, 5.5f), 0);
+
+                    // 시네머신 제어
+                    CamaraRecoil.DefaultVelocity = new Vector3(0, -1, 0);
+                    CamaraRecoil.ImpulseDefinition.ImpulseShape = CinemachineImpulseDefinition.ImpulseShapes.Recoil;
+                    CamaraRecoil.GenerateImpulse();
+
+                    // 발사음
                     WeaponAttackSFX[1].Play();
                     //AlertEnemies();
+                    if (AmmoCount <= 0)
+                    {
+                        StartCoroutine(ReloadPistol());
+                    }
+                    break;
+                case WeaponTypes.ItemWeapon:
                     break;
             }
             Anim.SetBool("Attack", true);
+        }
+        // 재장전 시도를 위한 별도 함수 (가독성과 안전성을 위해)
+        private void TryReload()
+        {
+            // 1. 현재 무기가 권총(Pistol)인지 확인
+            // 2. 이미 재장전 중(isReloading)인지 확인
+            // 3. 이미 탄약이 꽉 차 있는지 확인 (선택 사항)
+            if (CurrWeapon == WeaponTypes.Pistol && !PistolReload && AmmoCount < AmmoCount_Max)
+            {
+                StartCoroutine(ReloadPistol());
+            }
+        }
+
+        // 재장전 처리를 위한 코루틴
+        private IEnumerator ReloadPistol()
+        {
+            PistolReload = true;
+            GameManager_Project.instance.PistolReload_ArlarmTxt.enabled = true;
+
+            // 2초 대기
+            yield return new WaitForSeconds(2.0f);
+
+            // 탄약 채우기
+            AmmoCount = AmmoCount_Max;
+
+            // UI 갱신 (다시 꽉 찬 상태로)
+            GameManager_Project.instance.WeaponAmmoGuage.fillAmount = 1f;
+            GameManager_Project.instance.WeaponAmmoTxt.text = AmmoCount.ToString();
+
+            PistolReload = false;
+            GameManager_Project.instance.PistolReload_ArlarmTxt.enabled = false;
+            Debug.Log("재장전 완료!");
         }
 
         private void AttackOver()
@@ -185,7 +274,7 @@ namespace _2DTopDown
 
         public void DoHit()
         {
-            RaycastHit[] hits = Physics.SphereCastAll(MeleePivot.position, 2.0f, MeleePivot.up);
+            RaycastHit[] hits = Physics.SphereCastAll(MeleePivot.position, 2.2f, MeleePivot.up);
             foreach (RaycastHit hit in hits)
             {
                 if (hit.collider != null && hit.collider.tag == "Enemy")
@@ -204,8 +293,44 @@ namespace _2DTopDown
         {
             currentHP -= DMG;
             // 체력 UI 갱신
-            HealthBar.fillAmount = currentHP / maxHP;
-            HealthNum.text = $"{currentHP:F0} / {maxHP:F0}";
+            GameManager_Project.instance.HealthBar.fillAmount = currentHP / maxHP;
+            GameManager_Project.instance.HealthNum.text = $"{currentHP:F0} / {maxHP:F0}";
+
+            // 시네머신 제어
+            CamaraRecoil.DefaultVelocity = new Vector3(1, 0, 1);
+            CamaraRecoil.ImpulseDefinition.ImpulseShape = CinemachineImpulseDefinition.ImpulseShapes.Bump;
+            CamaraRecoil.GenerateImpulse();
+
+            // UI Image로 피격연출
+            GameManager_Project.instance.StartCoroutine(isHit());
+
+            if (currentHP > 50)
+            {
+                GameManager_Project.instance.HealthBar.color = GameManager_Project.instance.healthColor;
+                GameManager_Project.instance.PlayerDangerEffect.SetActive(false);
+
+                GameManager_Project.instance.HealthBar.fillAmount = currentHP / maxHP;
+                GameManager_Project.instance.HealthNum.text = $"{currentHP:F0} / {maxHP:F0}";
+            }
+            else if (currentHP > 20)
+            {
+                // 체력 상태변화를 시각적으로 확인하기 위해 노란색으로 변경
+                GameManager_Project.instance.HealthBar.color = GameManager_Project.instance.healthWarningColor;
+                GameManager_Project.instance.PlayerDangerEffect.SetActive(false);
+
+                // 체력 UI 갱신
+                GameManager_Project.instance.HealthBar.fillAmount = currentHP / maxHP;
+                GameManager_Project.instance.HealthNum.text = $"{currentHP:F0} / {maxHP:F0}";
+            }
+            else
+            {
+                GameManager_Project.instance.HealthBar.color = GameManager_Project.instance.healthDangerColor;
+                GameManager_Project.instance.PlayerDangerEffect.SetActive(true);
+
+                GameManager_Project.instance.HealthBar.fillAmount = currentHP / maxHP;
+                GameManager_Project.instance.HealthNum.text = $"{currentHP:F0} / {maxHP:F0}";
+            }
+
             if (currentHP <= 0)
             {
                 PlayerDead();
@@ -214,15 +339,42 @@ namespace _2DTopDown
         public void PlayerDead()
         {
             Anim.SetBool("Dead", true);
+            Anim_Leg.SetBool("Dead", true);
             Anim.transform.parent = null;
             this.enabled = false;
             rb.isKinematic = true;
-            GameManager.RegisterPlayerDeath();
+            GameManager_Project.instance.gameOver = true;
+            GameManager_Project.instance.GameOver.SetActive(true);
             gameObject.GetComponent<Collider>().enabled = false;
-            GameCamera.ToggleShake(0.3f);
             Vector3 pos = Anim.transform.position;
             pos.y = 0.2f;
             Anim.transform.position = pos;
+        }
+
+        // 0.2초 동안 피격 화면 연출하기
+        public IEnumerator isHit()
+        {
+            GameManager_Project.instance.PlayerHitEffect.SetActive(true);
+            yield return new WaitForSeconds(0.2f);
+            GameManager_Project.instance.PlayerHitEffect.SetActive(false);
+        }
+
+        public void PlayerHeal(float HealHP)
+        {
+            currentHP += HealHP;
+            // 체력 UI 갱신
+            GameManager_Project.instance.HealthBar.fillAmount = currentHP / maxHP;
+            GameManager_Project.instance.HealthNum.text = $"{currentHP:F0} / {maxHP:F0}";
+
+            // 최대 체력을 초과하지 않도록 제한
+            if (currentHP > maxHP) currentHP = maxHP;
+
+            // 체력이 회복되었으므로 색상 및 경고 효과 상태 업데이트
+            GameManager_Project.instance.HealthBar.color = GameManager_Project.instance.healthColor;
+            GameManager_Project.instance.PlayerDangerEffect.SetActive(false);
+
+            GameManager_Project.instance.HealthBar.fillAmount = currentHP / maxHP;
+            GameManager_Project.instance.HealthNum.text = $"{currentHP:F0} / {maxHP:F0}";
         }
     }
 }
