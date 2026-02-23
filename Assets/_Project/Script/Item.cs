@@ -8,11 +8,12 @@ namespace _2DTopDown
         // 아이템 타입
         public enum ItemTypes
         { 
+            Null_Weapon,
             MedKit,
             Rifle,
-            Shotgun
+            Shotgun,
         }
-        public ItemTypes itemTypes = ItemTypes.MedKit;
+        public ItemTypes itemTypes = ItemTypes.Null_Weapon;
 
         public TextMeshProUGUI pickUpTxt;
         public bool isPickUp = false;
@@ -53,13 +54,20 @@ namespace _2DTopDown
         {
             switch (itemTypes)
             {
+                case ItemTypes.Null_Weapon:
+                    Player.instance.EquipItem(ItemTypes.Null_Weapon);
+                    break;
                 case ItemTypes.MedKit:
                     Player.instance.PlayerHeal(50);
                     Destroy(gameObject);
                     break;
-                case ItemTypes.Rifle: 
+                case ItemTypes.Rifle:
+                    Player.instance.EquipItem(ItemTypes.Rifle);
+                    Destroy(gameObject);
                     break;
                 case ItemTypes.Shotgun:
+                    Player.instance.EquipItem(ItemTypes.Shotgun);
+                    Destroy(gameObject);
                     break;
             }
         }

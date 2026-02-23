@@ -16,13 +16,20 @@ namespace _2DTopDown
         public TextMeshProUGUI WeaponAmmoTxt;
         public TextMeshProUGUI PistolReload_ArlarmTxt;
         public GameObject GameOver;
+
         [Header("게임 UI/ 체력")]
         public Image HealthBar;
         public TextMeshProUGUI HealthNum;
+
         [Header("게임 UI / 무기")]
         public Image WeaponIcon;
         public Image WeaponAmmoGuage;
         public Sprite[] WeaponIcons;
+        public Sprite WeaponNullIcon;   // 아이템 무기에 담긴 탄약이 모두 소진되면 빈 아이콘으로 돌아오기
+
+        [Tooltip("3번 무기 슬롯에 표시할 아이콘 제어")]
+        public Image ItemWeaponIcon;
+
         [Header("게임 UI / 플레이어 피격")]
         public GameObject PlayerHitEffect;
         public GameObject PlayerDangerEffect;
@@ -90,7 +97,25 @@ namespace _2DTopDown
                     SetToggleState(1);
                     break;
                 case Player.WeaponTypes.ItemWeapon:
-                    SetToggleState(2);
+                    if (Player.instance.currentItemWeaponType == Item.ItemTypes.Rifle)
+                    {
+                        WeaponNameTxt.text = "ASK209 AR";
+                        WeaponIcon.sprite = WeaponIcons[2];
+                        ItemWeaponIcon.sprite = WeaponIcons[2];
+                    }
+                    else if (Player.instance.currentItemWeaponType == Item.ItemTypes.Shotgun)
+                    {
+                        WeaponNameTxt.text = "Mosberg SG";
+                        WeaponIcon.sprite = WeaponIcons[3];
+                        ItemWeaponIcon.sprite = WeaponIcons[3];
+                    }
+                    else
+                    {
+                        WeaponNameTxt.text = "None";
+                        WeaponIcon.sprite = WeaponNullIcon;
+                        ItemWeaponIcon.sprite = WeaponNullIcon;
+                    }
+                        SetToggleState(2);
                     break;
             }
         }

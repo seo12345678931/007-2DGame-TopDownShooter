@@ -1,8 +1,9 @@
+using System.Collections;
 using TMPro;
 using Unity.Cinemachine;
 using UnityEngine;
 using UnityEngine.UI;
-using System.Collections;
+using static _2DTopDown.Item;
 
 namespace _2DTopDown
 {
@@ -31,10 +32,10 @@ namespace _2DTopDown
         public Animator Anim_Leg;
 
         [Header("총알 프리팹")]
-        public GameObject proyectilePrefab;
+        public GameObject[] projectilePrefab;
 
         [Header("총구 위치 & 근접공격 위치")]
-        public Transform FireArmsPivot;
+        public Transform[] FireArmsPivot;
         public Transform MeleePivot;
 
         [Header("반동 연출을 위한 시네머신 제어")]
@@ -57,6 +58,10 @@ namespace _2DTopDown
         // 체력으로 따지면 AmmoCount => currentHP / AmmoCount_Max => maxHP
         private float AmmoCount;
         private float AmmoCount_Max;
+
+        // 발사간격 제어. 무기별로 발사속도를 제어할 예정이므로 지역변수로 설정하고 0으로 초기화.
+        private float fireRate = 0f;    // 총알 사이의 시간 간격 (낮을수록 빠름)
+        private float nextFireTime = 0f;   // 다음 발사 가능한 시점 (계산용)
 
         public static Player instance; // 싱글톤 인스턴스 추가
 
@@ -123,9 +128,30 @@ namespace _2DTopDown
                     }
                     break;
                 case WeaponTypes.ItemWeapon:
-                    if(Input.GetMouseButton(0))
+                    // 반자동 무기는 GetMouseButtonDown으로 조작하게 설정
+                    if (currentItemWeaponType == Item.ItemTypes.Rifle&& Time.time >= nextFireTime)
                     {
-                        Attack();
+                        if (Input.GetMouseButton(0) && Time.time >= nextFireTime)
+                        {
+                            // fireRate를 먼저 설정
+                            fireRate = 0.12f;
+                            Attack();
+                            nextFireTime = Time.time + fireRate;
+                            Anim.SetTrigger("isFiring");
+                        }
+                    }
+                    else if (currentItemWeaponType == Item.ItemTypes.Shotgun)
+                    {
+                        if (Input.GetMouseButtonDown(0) && Time.time >= nextFireTime)
+                        {
+                            fireRate = 0.8f;
+                            Attack();
+                            nextFireTime = Time.time + fireRate;
+                        }
+                    }
+                    else
+                    {
+                        return;
                     }
                     break;
             }
@@ -161,6 +187,16 @@ namespace _2DTopDown
             transform.eulerAngles = new Vector3(0, -angleInDegrees, 0);
         }
 
+        // 아이템 무기 종류를 저장할 변수 추가
+        public Item.ItemTypes currentItemWeaponType;
+
+        // 아이템 습득 시 호출될 함수 추가
+        public void EquipItem(Item.ItemTypes type)
+        {
+            currentItemWeaponType = type; // 어떤 아이템인지 저장
+            SetWeapon(WeaponTypes.ItemWeapon); // 무기 타입을 아이템 무기로 변경
+        }
+
         // 무기세팅
         public void SetWeapon(WeaponTypes weaponType)
         {
@@ -182,6 +218,31 @@ namespace _2DTopDown
                         Anim.SetInteger("WeaponType", 1);
                         break;
                     case WeaponTypes.ItemWeapon:
+                        // 아이템 무기일 때
+                        // 아이템 종류에 따라 애니메이션 파라미터나 탄약 설정 가능
+                        // 예: Rifle은 권총 애니메이션(1)을 공유하거나 별도 번호 부여
+                        if (currentItemWeaponType == Item.ItemTypes.Rifle)
+                        {
+                            AmmoCount = 30;
+                            AmmoCount_Max = 30;
+                            AmmoCount = AmmoCount_Max;
+                            GameManager_Project.instance.WeaponAmmoGuage.fillAmount = AmmoCount / AmmoCount_Max;
+                            GameManager_Project.instance.WeaponAmmoTxt.text = AmmoCount.ToString();
+                            Anim.SetInteger("WeaponType", 2);
+                        }
+                        else if (currentItemWeaponType == Item.ItemTypes.Shotgun)
+                        {
+                            AmmoCount = 8;
+                            AmmoCount_Max = 8;
+                            AmmoCount = AmmoCount_Max;
+                            GameManager_Project.instance.WeaponAmmoGuage.fillAmount = AmmoCount / AmmoCount_Max;
+                            GameManager_Project.instance.WeaponAmmoTxt.text = AmmoCount.ToString();
+                            Anim.SetInteger("WeaponType", 3);
+                        }
+                        else
+                        {
+                            Anim.SetInteger("WeaponType", 0);
+                        }
                         break;
                 }
             }
@@ -202,6 +263,7 @@ namespace _2DTopDown
                 case WeaponTypes.Knife:
                     Invoke("DoHit", 0.2f);
                     WeaponAttackSFX[0].Play();
+                    Anim.SetBool("Attack", true);
                     CancelInvoke("AttackOver");
                     Invoke("AttackOver", 0.6f);
                     break;
@@ -212,7 +274,7 @@ namespace _2DTopDown
                     GameManager_Project.instance.WeaponAmmoTxt.text = AmmoCount.ToString();
 
                     // 투사체 발사
-                    GameObject bullet = GameObject.Instantiate(proyectilePrefab, FireArmsPivot.position, FireArmsPivot.rotation) as GameObject;
+                    GameObject bullet = GameObject.Instantiate(projectilePrefab[0], FireArmsPivot[0].position, FireArmsPivot[0].rotation) as GameObject;
                     bullet.transform.LookAt(mousePointer.transform);
                     bullet.transform.Rotate(0, Random.Range(-5.5f, 5.5f), 0);
 
@@ -230,9 +292,60 @@ namespace _2DTopDown
                     }
                     break;
                 case WeaponTypes.ItemWeapon:
+                    if (currentItemWeaponType == Item.ItemTypes.Rifle)
+                    {
+                        AmmoCount--;
+                        GameManager_Project.instance.WeaponAmmoGuage.fillAmount = AmmoCount / AmmoCount_Max;
+                        GameManager_Project.instance.WeaponAmmoTxt.text = AmmoCount.ToString();
+
+                        // 라이플 공격: 자동 연사 (Update에서 GetMouseButton 처리 중)
+                        GameObject bulletAR = Instantiate(projectilePrefab[1], FireArmsPivot[1].position, FireArmsPivot[1].rotation);
+                        bulletAR.transform.LookAt(mousePointer.transform);
+                        bulletAR.transform.Rotate(0, Random.Range(-3f, 3f), 0); // 라이플은 권총보다 반동 적게 설정
+
+                        // 시네머신 초기화
+                        CamaraRecoil.DefaultVelocity = new Vector3(0, -1.5f, 0);
+                        CamaraRecoil.ImpulseDefinition.ImpulseShape = CinemachineImpulseDefinition.ImpulseShapes.Recoil;
+                        CamaraRecoil.GenerateImpulse();
+                        WeaponAttackSFX[2].Play();
+
+                        //AlertEnemies();
+                        if (AmmoCount <= 0)
+                        {
+                            DropWeapon();
+                        }
+                    }
+                    else if (currentItemWeaponType == Item.ItemTypes.Shotgun)
+                    {
+                        AmmoCount--;
+                        GameManager_Project.instance.WeaponAmmoGuage.fillAmount = AmmoCount / AmmoCount_Max;
+                        GameManager_Project.instance.WeaponAmmoTxt.text = AmmoCount.ToString();
+
+                        // 샷건 공격: 한 번에 여러 발 발사(벅샷)
+                        for (int i = 0; i < 3; i++)
+                        {
+                            GameObject birdshot = Instantiate(projectilePrefab[2], FireArmsPivot[2].position, FireArmsPivot[2].rotation);
+                            birdshot.transform.LookAt(mousePointer.transform);
+                            birdshot.transform.Rotate(0, Random.Range(-15f, 15f), 0); // 산탄 범위 넓게
+                        }
+
+                        CamaraRecoil.DefaultVelocity = new Vector3(0, -2, 0);
+                        CamaraRecoil.ImpulseDefinition.ImpulseShape = CinemachineImpulseDefinition.ImpulseShapes.Recoil;
+                        CamaraRecoil.GenerateImpulse();
+                        WeaponAttackSFX[3].Play();
+
+                        //AlertEnemies();
+                        if (AmmoCount <= 0)
+                        {
+                            DropWeapon();
+                        }
+                    }
+                    else
+                    {
+                        return;
+                    }
                     break;
             }
-            Anim.SetBool("Attack", true);
         }
         // 재장전 시도를 위한 별도 함수 (가독성과 안전성을 위해)
         private void TryReload()
@@ -265,6 +378,19 @@ namespace _2DTopDown
             PistolReload = false;
             GameManager_Project.instance.PistolReload_ArlarmTxt.enabled = false;
             Debug.Log("재장전 완료!");
+        }
+
+        public void DropWeapon()
+        {
+            // 탄약 UI 표시 초기화 (0으로 설정)
+            if (GameManager_Project.instance != null)
+            {
+                GameManager_Project.instance.WeaponAmmoGuage.fillAmount = 0;
+                GameManager_Project.instance.WeaponAmmoTxt.text = "0";
+            }
+
+            // 필드무기는 아무것도 없는 상태로 교체 & 모션과 무기는 권총으로 교체
+            SetWeapon(WeaponTypes.Pistol);
         }
 
         private void AttackOver()
