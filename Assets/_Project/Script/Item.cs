@@ -12,6 +12,8 @@ namespace _2DTopDown
             MedKit,
             Rifle,
             Shotgun,
+            SMGSD,
+            DMR
         }
         public ItemTypes itemTypes = ItemTypes.Null_Weapon;
 
@@ -58,15 +60,28 @@ namespace _2DTopDown
                     Player.instance.EquipItem(ItemTypes.Null_Weapon);
                     break;
                 case ItemTypes.MedKit:
+                    // 플레이어 체력이 최대체력(100) 이상일 시 함수 빠져나오기
+                    if (Player.instance.currentHP >= Player.instance.maxHP)
+                    {
+                        return;
+                    }
+
                     Player.instance.PlayerHeal(50);
                     Destroy(gameObject);
                     break;
                 case ItemTypes.Rifle:
                     Player.instance.EquipItem(ItemTypes.Rifle);
+                    Player.instance.WeaponItemEquipSFX.Play();
                     Destroy(gameObject);
                     break;
                 case ItemTypes.Shotgun:
                     Player.instance.EquipItem(ItemTypes.Shotgun);
+                    Player.instance.WeaponItemEquipSFX.Play();
+                    Destroy(gameObject);
+                    break;
+                case ItemTypes.SMGSD:
+                    Player.instance.EquipItem(ItemTypes.SMGSD);
+                    Player.instance.WeaponItemEquipSFX.Play();
                     Destroy(gameObject);
                     break;
             }

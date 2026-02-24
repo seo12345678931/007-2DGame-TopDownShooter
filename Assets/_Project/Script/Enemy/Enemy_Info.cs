@@ -489,6 +489,7 @@ namespace _2DTopDown
 						NPC_Anim.SetBool("Dead", true);
 						DownSound.Play();
             GameManager_Project.instance.AddScore(100);
+						GameManager_Project.instance.KillCount++;
             NPC_Anim.transform.parent = null;
             Vector3 pos = NPC_Anim.transform.position;
             pos.y = 0.2f;

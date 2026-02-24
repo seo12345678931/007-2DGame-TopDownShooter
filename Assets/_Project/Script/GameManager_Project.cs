@@ -1,9 +1,10 @@
+using _2DTopDown;
 using System;
+using System.Collections;
 using TMPro;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
-using _2DTopDown;
-using System.Collections;
 
 namespace _2DTopDown
 {
@@ -15,7 +16,10 @@ namespace _2DTopDown
         public TextMeshProUGUI WeaponNameTxt;
         public TextMeshProUGUI WeaponAmmoTxt;
         public TextMeshProUGUI PistolReload_ArlarmTxt;
+
+        [Header("팝업(게임오버, 게임 클리어)")]
         public GameObject GameOver;
+        public GameObject GameClear;
 
         [Header("게임 UI/ 체력")]
         public Image HealthBar;
@@ -34,13 +38,15 @@ namespace _2DTopDown
         public GameObject PlayerHitEffect;
         public GameObject PlayerDangerEffect;
 
-        [Header("무기 선택 토글")]
+        [Header("무기 선택 시 나타나는 이미지 연출")]
         public Toggle[] WeaponSelectToggles;
+        //public GameObject WeaponSelectedImage;
 
         [Header("체력 0에 도달 시 게임오버 설정")]
         public bool gameOver = false;
 
-        private int currentScore = 0;
+        [HideInInspector] // 게임점수. 스크립트만 제어할 것이기에 인스펙터를 숨김
+        public int currentScore = 0;
 
         [Header("체력량에 따른 색상조정")]
         // 플레이어 체력 색상원복
@@ -51,6 +57,10 @@ namespace _2DTopDown
 
         // 플레이어 체력이 20% 일 때
         public Color healthDangerColor = new Color32(255, 59, 59, 255);
+
+        [HideInInspector]
+        // 적 처치 수 (스크립트로만 제어할 예정이기에 인스펙터를 숨김)
+        public int KillCount;
 
         // 싱글톤 인스턴스 설정
         public static GameManager_Project instance;
@@ -63,11 +73,13 @@ namespace _2DTopDown
         // Start is called once before the first execution of Update after the MonoBehaviour is created
         void Start()
         {
+            Time.timeScale = 1;
             ScoreTxt.text = $"Score: {currentScore}";
             PistolReload_ArlarmTxt.enabled = false ;
             PlayerHitEffect.SetActive(false);
             PlayerDangerEffect.SetActive(false);
             GameOver.SetActive(false);
+            GameClear.SetActive(false);
         }
 
         // Update is called once per frame
@@ -77,7 +89,7 @@ namespace _2DTopDown
 
             if (gameOver && Input.GetKeyDown(KeyCode.R))
             {
-                Application.LoadLevel(Application.loadedLevel);
+                SceneManager.LoadScene("MainGame");
             }
         }
 
@@ -109,7 +121,13 @@ namespace _2DTopDown
                         WeaponIcon.sprite = WeaponIcons[3];
                         ItemWeaponIcon.sprite = WeaponIcons[3];
                     }
-                    else
+                    else if(Player.instance.currentItemWeaponType == Item.ItemTypes.SMGSD)
+                    {
+                        WeaponNameTxt.text = "MP5 SD";
+                        WeaponIcon.sprite = WeaponIcons[4];
+                        ItemWeaponIcon.sprite = WeaponIcons[4];
+                    }
+                    else if (Player.instance.currentItemWeaponType == Item.ItemTypes.Null_Weapon)
                     {
                         WeaponNameTxt.text = "None";
                         WeaponIcon.sprite = WeaponNullIcon;

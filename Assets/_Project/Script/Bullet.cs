@@ -30,7 +30,7 @@ namespace _2DTopDown
 
         private void OnTriggerEnter(Collider other)
         {
-            if(other.CompareTag("Enemy"))
+            if(other.CompareTag("Enemy") || other.CompareTag("Dummy"))
             {
                 other.gameObject.GetComponent<Enemy_Info>().TakeDamage(Damage);
                 Destroy(gameObject);

@@ -1,3 +1,11 @@
+// 새 필드무기 추가하는 방법
+/*
+ * 1. Update에 있는 Switch문 case WeaponTypes.ItemWeapon: 안에 추가한다.
+ * 2. if (Input.GetKeyDown(KeyCode.Alpha3) && 옆에도 추가한다.
+ * 3. SetWeapon에서 case WeaponTypes.ItemWeapon: 에도 새로 추가한다.
+ * 4. GameManager_Project 스크립트 중에 SelectWeapon에도 새로 추가한다.
+ */
+
 using System.Collections;
 using TMPro;
 using Unity.Cinemachine;
@@ -19,7 +27,7 @@ namespace _2DTopDown
         }
         WeaponTypes CurrWeapon = WeaponTypes.Null;
 
-        Rigidbody rb;
+        public Rigidbody rb;
         public float moveSpeed = 10.0f;
         public GameObject mousePointer;
 
@@ -31,8 +39,9 @@ namespace _2DTopDown
         public Animator Anim;
         public Animator Anim_Leg;
 
-        [Header("총알 프리팹")]
+        [Header("총알 프리팹 & 머즐 플레시")]
         public GameObject[] projectilePrefab;
+        public GameObject[] MuzzleFlashs;
 
         [Header("총구 위치 & 근접공격 위치")]
         public Transform[] FireArmsPivot;
@@ -44,6 +53,10 @@ namespace _2DTopDown
         [Header("사운드")]
         public AudioSource[] FootStep;  // 향후 여러 발소리 추가예정
         public AudioSource[] WeaponAttackSFX;
+        public AudioSource WeaponItemEquipSFX;
+
+        [Header("아이템 무기 종류를 저장할 변수")]
+        public Item.ItemTypes currentItemWeaponType;
 
         // 발소리 간격 제어
         private float footStepTimer;
@@ -129,7 +142,7 @@ namespace _2DTopDown
                     break;
                 case WeaponTypes.ItemWeapon:
                     // 반자동 무기는 GetMouseButtonDown으로 조작하게 설정
-                    if (currentItemWeaponType == Item.ItemTypes.Rifle&& Time.time >= nextFireTime)
+                    if (currentItemWeaponType == Item.ItemTypes.Rifle)
                     {
                         if (Input.GetMouseButton(0) && Time.time >= nextFireTime)
                         {
@@ -149,9 +162,18 @@ namespace _2DTopDown
                             nextFireTime = Time.time + fireRate;
                         }
                     }
-                    else
+                    else if(currentItemWeaponType == Item.ItemTypes.SMGSD)
                     {
-                        return;
+                        if (Input.GetMouseButton(0) && Time.time >= nextFireTime)
+                        {
+                            fireRate = 0.9f;
+                            Attack();
+                            nextFireTime = Time.time + fireRate;
+                        }
+                    }
+                    else if (currentItemWeaponType == Item.ItemTypes.Null_Weapon)
+                    {
+                        SetWeapon(WeaponTypes.Pistol);
                     }
                     break;
             }
@@ -164,7 +186,10 @@ namespace _2DTopDown
             {
                 SetWeapon(WeaponTypes.Pistol);
             }
-            if (Input.GetKeyDown(KeyCode.Alpha3))
+            if (Input.GetKeyDown(KeyCode.Alpha3) &&
+                currentItemWeaponType == Item.ItemTypes.Rifle ||
+                currentItemWeaponType == Item.ItemTypes.Shotgun ||
+                currentItemWeaponType == Item.ItemTypes.SMGSD)
             {
                 SetWeapon(WeaponTypes.ItemWeapon);
             }
@@ -186,9 +211,6 @@ namespace _2DTopDown
             float angleInDegrees = Mathf.Atan2(deltaY, deltaX) * 180 / Mathf.PI;
             transform.eulerAngles = new Vector3(0, -angleInDegrees, 0);
         }
-
-        // 아이템 무기 종류를 저장할 변수 추가
-        public Item.ItemTypes currentItemWeaponType;
 
         // 아이템 습득 시 호출될 함수 추가
         public void EquipItem(Item.ItemTypes type)
@@ -223,8 +245,8 @@ namespace _2DTopDown
                         // 예: Rifle은 권총 애니메이션(1)을 공유하거나 별도 번호 부여
                         if (currentItemWeaponType == Item.ItemTypes.Rifle)
                         {
-                            AmmoCount = 30;
-                            AmmoCount_Max = 30;
+                            AmmoCount = 15;
+                            AmmoCount_Max = 15;
                             AmmoCount = AmmoCount_Max;
                             GameManager_Project.instance.WeaponAmmoGuage.fillAmount = AmmoCount / AmmoCount_Max;
                             GameManager_Project.instance.WeaponAmmoTxt.text = AmmoCount.ToString();
@@ -238,6 +260,15 @@ namespace _2DTopDown
                             GameManager_Project.instance.WeaponAmmoGuage.fillAmount = AmmoCount / AmmoCount_Max;
                             GameManager_Project.instance.WeaponAmmoTxt.text = AmmoCount.ToString();
                             Anim.SetInteger("WeaponType", 3);
+                        }
+                        else if (currentItemWeaponType == Item.ItemTypes.SMGSD)
+                        {
+                            AmmoCount = 20;
+                            AmmoCount_Max = 20;
+                            AmmoCount = AmmoCount_Max;
+                            GameManager_Project.instance.WeaponAmmoGuage.fillAmount = AmmoCount / AmmoCount_Max;
+                            GameManager_Project.instance.WeaponAmmoTxt.text = AmmoCount.ToString();
+                            Anim.SetInteger("WeaponType", 4);
                         }
                         else
                         {
@@ -273,8 +304,11 @@ namespace _2DTopDown
                     GameManager_Project.instance.WeaponAmmoGuage.fillAmount = AmmoCount / AmmoCount_Max;
                     GameManager_Project.instance.WeaponAmmoTxt.text = AmmoCount.ToString();
 
+                    // 머즐 플래시 생성
+                    CreateMuzzleFlash(0);
+
                     // 투사체 발사
-                    GameObject bullet = GameObject.Instantiate(projectilePrefab[0], FireArmsPivot[0].position, FireArmsPivot[0].rotation) as GameObject;
+                    GameObject bullet = Instantiate(projectilePrefab[0], FireArmsPivot[0].position, FireArmsPivot[0].rotation) as GameObject;
                     bullet.transform.LookAt(mousePointer.transform);
                     bullet.transform.Rotate(0, Random.Range(-5.5f, 5.5f), 0);
 
@@ -285,7 +319,7 @@ namespace _2DTopDown
 
                     // 발사음
                     WeaponAttackSFX[1].Play();
-                    //AlertEnemies();
+                    AlertEnemies();
                     if (AmmoCount <= 0)
                     {
                         StartCoroutine(ReloadPistol());
@@ -298,6 +332,8 @@ namespace _2DTopDown
                         GameManager_Project.instance.WeaponAmmoGuage.fillAmount = AmmoCount / AmmoCount_Max;
                         GameManager_Project.instance.WeaponAmmoTxt.text = AmmoCount.ToString();
 
+                        CreateMuzzleFlash(1);
+
                         // 라이플 공격: 자동 연사 (Update에서 GetMouseButton 처리 중)
                         GameObject bulletAR = Instantiate(projectilePrefab[1], FireArmsPivot[1].position, FireArmsPivot[1].rotation);
                         bulletAR.transform.LookAt(mousePointer.transform);
@@ -309,7 +345,7 @@ namespace _2DTopDown
                         CamaraRecoil.GenerateImpulse();
                         WeaponAttackSFX[2].Play();
 
-                        //AlertEnemies();
+                        AlertEnemies();
                         if (AmmoCount <= 0)
                         {
                             DropWeapon();
@@ -320,6 +356,8 @@ namespace _2DTopDown
                         AmmoCount--;
                         GameManager_Project.instance.WeaponAmmoGuage.fillAmount = AmmoCount / AmmoCount_Max;
                         GameManager_Project.instance.WeaponAmmoTxt.text = AmmoCount.ToString();
+
+                        CreateMuzzleFlash(2);
 
                         // 샷건 공격: 한 번에 여러 발 발사(벅샷)
                         for (int i = 0; i < 3; i++)
@@ -334,7 +372,30 @@ namespace _2DTopDown
                         CamaraRecoil.GenerateImpulse();
                         WeaponAttackSFX[3].Play();
 
-                        //AlertEnemies();
+                        AlertEnemies();
+                        if (AmmoCount <= 0)
+                        {
+                            DropWeapon();
+                        }
+                    }
+                    if (currentItemWeaponType == Item.ItemTypes.SMGSD)
+                    {
+                        AmmoCount--;
+                        GameManager_Project.instance.WeaponAmmoGuage.fillAmount = AmmoCount / AmmoCount_Max;
+                        GameManager_Project.instance.WeaponAmmoTxt.text = AmmoCount.ToString();
+
+                        CreateMuzzleFlash(3);
+
+                        GameObject bulletAR = Instantiate(projectilePrefab[0], FireArmsPivot[1].position, FireArmsPivot[1].rotation);
+                        bulletAR.transform.LookAt(mousePointer.transform);
+                        bulletAR.transform.Rotate(0, Random.Range(-2.7f, 2.7f), 0);
+
+                        // 시네머신 초기화
+                        CamaraRecoil.DefaultVelocity = new Vector3(0, -0.3f, 0);
+                        CamaraRecoil.ImpulseDefinition.ImpulseShape = CinemachineImpulseDefinition.ImpulseShapes.Recoil;
+                        CamaraRecoil.GenerateImpulse();
+                        WeaponAttackSFX[4].Play();
+
                         if (AmmoCount <= 0)
                         {
                             DropWeapon();
@@ -347,6 +408,27 @@ namespace _2DTopDown
                     break;
             }
         }
+
+        // 머즐 플래시 로직
+        private void CreateMuzzleFlash(int index)
+        {
+            // 배열 범위를 벗어나지 않는지 확인하고 프리팹이 있는지 체크
+            if (MuzzleFlashs != null && MuzzleFlashs.Length > index && MuzzleFlashs[index] != null)
+            {
+                // FireArmsPivot 위치와 회전값으로 생성
+                GameObject flash = Instantiate(MuzzleFlashs[index], FireArmsPivot[index].position, FireArmsPivot[index].rotation);
+
+                // 총구 위치를 계속 따라가게 하려면 부모를 설정 (선택 사항)
+                flash.transform.SetParent(FireArmsPivot[index]);
+
+                // 머즐 플래시 회전값 설정 (x값은 탑다운에 맞게 90로 설정)
+                flash.transform.Rotate(90, 0, 0);
+
+                // 아주 짧은 시간 뒤에 자동 삭제 (0.05초)
+                Destroy(flash, 0.05f);
+            }
+        }
+
         // 재장전 시도를 위한 별도 함수 (가독성과 안전성을 위해)
         private void TryReload()
         {
@@ -391,6 +473,7 @@ namespace _2DTopDown
 
             // 필드무기는 아무것도 없는 상태로 교체 & 모션과 무기는 권총으로 교체
             SetWeapon(WeaponTypes.Pistol);
+            EquipItem(ItemTypes.Null_Weapon);
         }
 
         private void AttackOver()
@@ -398,16 +481,33 @@ namespace _2DTopDown
             Anim.SetBool("Attack", false);
         }
 
+        private void AlertEnemies()
+        {
+            // 기존의 hitTestPivot에서 플레이어의 위치인 transform으로 대체
+            RaycastHit[] hits = Physics.SphereCastAll(transform.position, 20.0f, transform.up);
+            foreach (RaycastHit hit in hits)
+            {
+                if (hit.collider != null && hit.collider.tag == "Enemy")
+                {
+                    hit.collider.GetComponent<Enemy_Info>().SetAlertPos(transform.position);
+                }
+                else
+                {
+                    return;
+                }
+            }
+        }
+
         public void DoHit()
         {
             RaycastHit[] hits = Physics.SphereCastAll(MeleePivot.position, 2.2f, MeleePivot.up);
             foreach (RaycastHit hit in hits)
             {
-                if (hit.collider != null && hit.collider.tag == "Enemy")
+                if (hit.collider != null && hit.collider.tag == "Enemy" || hit.collider.tag == "Dummy")
                 {
                     RaycastHit forwarHit = new RaycastHit();
                     Physics.Raycast(MeleePivot.position, hit.transform.position - transform.position, out forwarHit);
-                    if (forwarHit.collider != null && forwarHit.collider.tag == "Enemy")
+                    if (forwarHit.collider != null && forwarHit.collider.tag == "Enemy" || forwarHit.collider.tag == "Dummy")
                     {
                         forwarHit.collider.GetComponent<Enemy_Info>().TakeDamage(MeleeDamage);
                     }
