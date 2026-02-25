@@ -18,10 +18,10 @@ namespace _2DTopDown
 		}
 		public enum Enemy_WeaponType 
 		{ 
-				NONE,
-				KNIFE, 
-				RIFLE, 
-				SHOTGUN 
+				None,
+				Melee, 
+				SMG, 
+				Shotgun
 		}
 		public class Enemy_Info : MonoBehaviour
 		{
@@ -39,6 +39,8 @@ namespace _2DTopDown
 				[Header("사운드")]
 				public AudioSource HitSound;
 				public AudioSource DownSound;
+        public AudioSource[] FootStep;  // 적도 플레이어에 맞게 여러 발소리 추가예정
+        public AudioSource[] WeaponFiringSFX;
 
         [Header("인공지능 관련(수색시간 & 내비메쉬 에이전트)")]
 				public float inspectTimeout;
@@ -48,7 +50,7 @@ namespace _2DTopDown
 				public Animator NPC_Anim;
 
 				[Header("적 총알 투사체")]
-				public GameObject proyectilePrefab;
+				public GameObject[] proyectilePrefab;
 
 				delegate void InitState();
 				delegate void UpdateState();
@@ -58,7 +60,7 @@ namespace _2DTopDown
 				InitState _endState;
 
 				[Header("적 유형")]
-				public Enemy_WeaponType weaponType = Enemy_WeaponType.KNIFE;
+				public Enemy_WeaponType weaponType = Enemy_WeaponType.Melee;
 				public Enemy_EnemyState idleState = Enemy_EnemyState.IDLE_ROAMER;
 				Enemy_EnemyState currentState = Enemy_EnemyState.NONE;
 
@@ -73,7 +75,7 @@ namespace _2DTopDown
 				int hashSpeed;
 
 				[Header("Nav를 통한 적 순찰경로")]
-				public NPC_PatrolNode patrolNode;
+				public Enemy_PatrolNode patrolNode;
 
         private void Start()
 				{
@@ -90,22 +92,22 @@ namespace _2DTopDown
 						NPC_Anim.SetInteger("WeaponType", (int)weaponType);
 						switch (weaponType)
 						{
-								case Enemy_WeaponType.NONE:
+								case Enemy_WeaponType.None:
                     weaponRange = 0;
                     weaponActionTime = 0;
                     weaponTime = 0;
                     break;
-								case Enemy_WeaponType.KNIFE:
+								case Enemy_WeaponType.Melee:
 										weaponRange = 1.0f;
 										weaponActionTime = 0.2f;
 										weaponTime = 0.4f;
 										break;
-								case Enemy_WeaponType.RIFLE:
+								case Enemy_WeaponType.SMG:
 										weaponRange = 20.0f;
 										weaponActionTime = 0.025f;
 										weaponTime = 0.05f;
 										break;
-								case Enemy_WeaponType.SHOTGUN:
+								case Enemy_WeaponType.Shotgun:
 										weaponRange = 20.0f;
 										weaponActionTime = 0.35f;
 										weaponTime = 0.75f;
@@ -166,55 +168,55 @@ namespace _2DTopDown
 						}
 				}
 
-				void UpdateSensors()
+				private void UpdateSensors()
 				{
 
 				}
 
-				void StateInit_None()
+				private void StateInit_None()
 				{
             navMeshAgent.isStopped = true;
         }
-        void StateUpdate_None()
+        private void StateUpdate_None()
         {
 
         }
-        void StateEnd_None()
+        private void StateEnd_None()
         {
 
         }
 
         ///////////////////////////////////////////////////////// STATE: IDLE STATIC
-        void StateInit_IdleStatic()
+        private void StateInit_IdleStatic()
 				{
 						navMeshAgent.SetDestination(startingPos);
 						navMeshAgent.isStopped = false;
         }
-				void StateUpdate_IdleStatic()
+				private void StateUpdate_IdleStatic()
 				{
 
 				}
-				void StateEnd_IdleStatic()
+				private void StateEnd_IdleStatic()
 				{
 
 				}
 
 				///////////////////////////////////////////////////////// STATE: IDLE PATROL
-				void StateInit_IdlePatrol()
+				private void StateInit_IdlePatrol()
 				{
 						navMeshAgent.speed = 6.0f;
-						navMeshAgent.SetDestination(patrolNode.GetPosition());
+						navMeshAgent.SetDestination(patrolNode.GetMovePosition());
 				}
-				void StateUpdate_IdlePatrol()
+        private void StateUpdate_IdlePatrol()
 				{
 						if (HasReachedMyDestination())
 						{
 								patrolNode = patrolNode.nextNode;
-								navMeshAgent.SetDestination(patrolNode.GetPosition());
+								navMeshAgent.SetDestination(patrolNode.GetMovePosition());
 						}
 
 				}
-				void StateEnd_IdlePatrol()
+				private void StateEnd_IdlePatrol()
 				{
 
 				}
@@ -223,7 +225,7 @@ namespace _2DTopDown
 				Misc_Timer idleTimer = new Misc_Timer();
 				Misc_Timer idleRotateTimer = new Misc_Timer();
 				bool idleWaiting, idleMoving;
-				void StateInit_IdleRoamer()
+				private void StateInit_IdleRoamer()
 				{
 						navMeshAgent.speed = 7.0f;
 
@@ -233,7 +235,7 @@ namespace _2DTopDown
 						idleWaiting = false;
 						idleMoving = true;
 				}
-				void StateUpdate_IdleRoamer()
+				private void StateUpdate_IdleRoamer()
 				{
 
 						idleTimer.UpdateTimer();
@@ -279,7 +281,7 @@ namespace _2DTopDown
 						}
 
 				}
-				void StateEnd_IdleRoamer()
+				private void StateEnd_IdleRoamer()
 				{
 
 				}
@@ -296,7 +298,7 @@ namespace _2DTopDown
 						Debug.DrawRay(hit.point, reflectedVector * 5.0f, Color.green);
 				}
 
-				void AdvanceIdle()
+				private void AdvanceIdle()
 				{
 						RaycastHit hit = new RaycastHit();
 						Physics.Raycast(transform.position, transform.forward * 5.0f, out hit, 50.0f, hitTestLayer);
@@ -316,14 +318,14 @@ namespace _2DTopDown
 				Misc_Timer inspectTimer = new Misc_Timer();
 				Misc_Timer inspectTurnTimer = new Misc_Timer();
 				bool inspectWait;
-				void StateInit_Inspect()
+				private void StateInit_Inspect()
 				{
 						navMeshAgent.speed = 16.0f;
 						navMeshAgent.isStopped = false;
 						inspectTimer.StopTimer();
 						inspectWait = false;
 				}
-				void StateUpdate_Inspect()
+				private void StateUpdate_Inspect()
 				{
 						if (HasReachedMyDestination() && !inspectWait)
 						{
@@ -352,7 +354,7 @@ namespace _2DTopDown
 										SetState(idleState);
 						}
 				}
-				void StateEnd_Inspect()
+				private void StateEnd_Inspect()
 				{
 
 				}
@@ -360,7 +362,7 @@ namespace _2DTopDown
 				///////////////////////////////////////////////////////// STATE: ATTACK
 				Misc_Timer attackActionTimer = new Misc_Timer();
 				bool actionDone;
-				void StateInit_Attack()
+				private void StateInit_Attack()
 				{
 						navMeshAgent.isStopped = true;
 						navMeshAgent.velocity = Vector3.zero;
@@ -371,7 +373,7 @@ namespace _2DTopDown
 
 						actionDone = false;
 				}
-				void StateUpdate_Attack()
+				private void StateUpdate_Attack()
 				{
 						attackActionTimer.UpdateTimer();
 						if (!actionDone && attackActionTimer.IsFinished())
@@ -381,21 +383,22 @@ namespace _2DTopDown
 								actionDone = true;
 						}
 				}
-				void StateEnd_Attack()
+				private void StateEnd_Attack()
 				{
 						NPC_Anim.SetBool("Attack", false);
 				}
-				void EndAttack()
+				private void EndAttack()
 				{
 						SetState(Enemy_EnemyState.INSPECT);
 				}
-				void AttackAction()
+				private void AttackAction()
 				{
 						switch (weaponType)
 						{
-								case Enemy_WeaponType.KNIFE:
+								case Enemy_WeaponType.Melee:
 										RaycastHit[] hits = Physics.SphereCastAll(weaponPivot.position, 2.0f, weaponPivot.forward);
-										foreach (RaycastHit hit in hits)
+                    WeaponFiringSFX[0].Play();
+                    foreach (RaycastHit hit in hits)
 										{
 												if (hit.collider != null && hit.collider.tag == "Player")
 												{
@@ -403,22 +406,23 @@ namespace _2DTopDown
 												}
 										}
 										break;
-								case Enemy_WeaponType.RIFLE:
-										GameObject bullet = GameObject.Instantiate(proyectilePrefab, weaponPivot.position, weaponPivot.rotation) as GameObject;
+								case Enemy_WeaponType.SMG:
+										GameObject bullet = Instantiate(proyectilePrefab[0], weaponPivot.position, weaponPivot.rotation) as GameObject;
 										bullet.transform.Rotate(0, Random.Range(-7.5f, 7.5f), 0);
-										break;
-								case Enemy_WeaponType.SHOTGUN:
+                    WeaponFiringSFX[1].Play();
+                    break;
+								case Enemy_WeaponType.Shotgun:
 										for (int i = 0; i < 5; i++)
 										{
-												GameObject birdshot = GameObject.Instantiate(proyectilePrefab, weaponPivot.position, weaponPivot.rotation) as GameObject;
+												GameObject birdshot = Instantiate(proyectilePrefab[1], weaponPivot.position, weaponPivot.rotation) as GameObject;
 												birdshot.transform.Rotate(0, Random.Range(-15, 15), 0);
 										}
-										break;
+                    WeaponFiringSFX[2].Play();
+                    break;
 						}
 				}
-				////////////////////////// MISC FUNCTIONS //////////////////////////
-
-				void RandomRotate()
+        ////////////////////////// MISC FUNCTIONS //////////////////////////
+        private void RandomRotate()
 				{
 						float randomAngle = Random.Range(45, 180);
 						float randomSign = Random.Range(0, 2);
@@ -427,16 +431,6 @@ namespace _2DTopDown
 
 						transform.Rotate(0, randomAngle, 0);
 				}
-				/*float randomMoveInnerRadius=0.5f, randomMoveOuterRadius=10.0f;
-				private Vector3 GetRandomPoint(){	
-					Vector3 newPos;
-					//do{
-						newPos=Random.insideUnitSphere * randomMoveOuterRadius;
-					//}while(newPos.x <randomMoveInnerRadius && newPos.y<randomMoveInnerRadius);
-					Vector3 finalPos = transform.position + newPos;
-
-					return finalPos;
-				}*/
 				
 				public bool HasReachedMyDestination()
 				{
@@ -487,7 +481,6 @@ namespace _2DTopDown
 				{
 						navMeshAgent.velocity = Vector3.zero;
 						NPC_Anim.SetBool("Dead", true);
-						DownSound.Play();
             GameManager_Project.instance.AddScore(100);
 						GameManager_Project.instance.KillCount++;
             NPC_Anim.transform.parent = null;
@@ -495,6 +488,8 @@ namespace _2DTopDown
             pos.y = 0.2f;
             NPC_Anim.transform.position = pos;
 						EnemyCollider.enabled = false;
+						DownSound.Play();
+            Destroy(gameObject);
         }
 		}
 }

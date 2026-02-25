@@ -9,6 +9,7 @@
 using System.Collections;
 using TMPro;
 using Unity.Cinemachine;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.UI;
 using static _2DTopDown.Item;
@@ -42,6 +43,7 @@ namespace _2DTopDown
         [Header("총알 프리팹 & 머즐 플레시")]
         public GameObject[] projectilePrefab;
         public GameObject[] MuzzleFlashs;
+        public GameObject GunSmoke;
 
         [Header("총구 위치 & 근접공격 위치")]
         public Transform[] FireArmsPivot;
@@ -49,6 +51,12 @@ namespace _2DTopDown
 
         [Header("반동 연출을 위한 시네머신 제어")]
         public CinemachineImpulseSource CamaraRecoil;
+
+        [Header("조준사격 연출을 위한 시네머신 제어")]
+        public CinemachineCamera vCam; // 인스펙터에서 가상 카메라를 할당하세요.
+        public float normalSize = 10f; // 기본 직교 크기
+        public float aimSize = 15f;    // 조준 시 직교 크기 (현재 설정은 줌 아웃)
+        public float zoomSpeed = 10f;
 
         [Header("사운드")]
         public AudioSource[] FootStep;  // 향후 여러 발소리 추가예정
@@ -129,9 +137,12 @@ namespace _2DTopDown
             switch (CurrWeapon)
             {
                 case WeaponTypes.Knife:
-                    if (Input.GetMouseButtonDown(0))
+                    if (Input.GetMouseButtonDown(0) && Time.time >= nextFireTime)
                     {
+                        // 원래 fireRate는 연사총에만 넣을 예정이나 근접공격 모션이 안맞아 추가함
+                        fireRate = 0.8f;
                         Attack();
+                        nextFireTime = Time.time + fireRate;
                     }
                     break;
                 case WeaponTypes.Pistol:
@@ -153,7 +164,7 @@ namespace _2DTopDown
                             Anim.SetTrigger("isFiring");
                         }
                     }
-                    else if (currentItemWeaponType == Item.ItemTypes.Shotgun)
+                    if (currentItemWeaponType == Item.ItemTypes.Shotgun)
                     {
                         if (Input.GetMouseButtonDown(0) && Time.time >= nextFireTime)
                         {
@@ -162,16 +173,37 @@ namespace _2DTopDown
                             nextFireTime = Time.time + fireRate;
                         }
                     }
-                    else if(currentItemWeaponType == Item.ItemTypes.SMGSD)
+                    if(currentItemWeaponType == Item.ItemTypes.SMGSD)
                     {
                         if (Input.GetMouseButton(0) && Time.time >= nextFireTime)
                         {
-                            fireRate = 0.9f;
+                            fireRate = 0.1f;
                             Attack();
                             nextFireTime = Time.time + fireRate;
                         }
                     }
-                    else if (currentItemWeaponType == Item.ItemTypes.Null_Weapon)
+                    if (currentItemWeaponType == Item.ItemTypes.DMR)
+                    {
+                        if (Input.GetMouseButtonDown(0) && Time.time >= nextFireTime)
+                        {
+                            fireRate = 0.12f;
+                            Attack();
+                            nextFireTime = Time.time + fireRate;
+                        }
+
+                        // 마우스 오른쪽 누르기 : 조준 (Orthographic Size 조절)
+                        if (Input.GetMouseButton(1))
+                        {
+                            // Lens.OrthographicSize로 접근합니다.
+                            vCam.Lens.OrthographicSize = Mathf.Lerp(vCam.Lens.OrthographicSize, aimSize, Time.deltaTime * zoomSpeed);
+                        }
+                        else
+                        {
+                            // 떼면 다시 원래 크기로 복귀
+                            vCam.Lens.OrthographicSize = Mathf.Lerp(vCam.Lens.OrthographicSize, normalSize, Time.deltaTime * zoomSpeed);
+                        }
+                    }
+                    if (currentItemWeaponType == Item.ItemTypes.Null_Weapon)
                     {
                         SetWeapon(WeaponTypes.Pistol);
                     }
@@ -182,17 +214,23 @@ namespace _2DTopDown
             {
                 SetWeapon(WeaponTypes.Knife);
             }
+
             if (Input.GetKeyDown(KeyCode.Alpha2))
             {
                 SetWeapon(WeaponTypes.Pistol);
             }
-            if (Input.GetKeyDown(KeyCode.Alpha3) &&
-                currentItemWeaponType == Item.ItemTypes.Rifle ||
-                currentItemWeaponType == Item.ItemTypes.Shotgun ||
-                currentItemWeaponType == Item.ItemTypes.SMGSD)
+
+            if (Input.GetKeyDown(KeyCode.Alpha3))
             {
-                SetWeapon(WeaponTypes.ItemWeapon);
+                if(currentItemWeaponType == Item.ItemTypes.Rifle ||
+                currentItemWeaponType == Item.ItemTypes.Shotgun ||
+                currentItemWeaponType == Item.ItemTypes.SMGSD ||
+                currentItemWeaponType == Item.ItemTypes.DMR)
+                {
+                    SetWeapon(WeaponTypes.ItemWeapon);
+                }
             }
+
             // (Pistol)권총사격 도중 재장전하기
             if (Input.GetKeyDown(KeyCode.R))
             {
@@ -235,8 +273,7 @@ namespace _2DTopDown
                         AmmoCount = 7;
                         AmmoCount_Max = 7;
                         AmmoCount = AmmoCount_Max;
-                        GameManager_Project.instance.WeaponAmmoGuage.fillAmount = AmmoCount / AmmoCount_Max;
-                        GameManager_Project.instance.WeaponAmmoTxt.text = AmmoCount.ToString();
+                        UpdateAmmoUI();
                         Anim.SetInteger("WeaponType", 1);
                         break;
                     case WeaponTypes.ItemWeapon:
@@ -245,11 +282,10 @@ namespace _2DTopDown
                         // 예: Rifle은 권총 애니메이션(1)을 공유하거나 별도 번호 부여
                         if (currentItemWeaponType == Item.ItemTypes.Rifle)
                         {
-                            AmmoCount = 15;
-                            AmmoCount_Max = 15;
+                            AmmoCount = 17;
+                            AmmoCount_Max = 17;
                             AmmoCount = AmmoCount_Max;
-                            GameManager_Project.instance.WeaponAmmoGuage.fillAmount = AmmoCount / AmmoCount_Max;
-                            GameManager_Project.instance.WeaponAmmoTxt.text = AmmoCount.ToString();
+                            UpdateAmmoUI();
                             Anim.SetInteger("WeaponType", 2);
                         }
                         else if (currentItemWeaponType == Item.ItemTypes.Shotgun)
@@ -257,8 +293,7 @@ namespace _2DTopDown
                             AmmoCount = 8;
                             AmmoCount_Max = 8;
                             AmmoCount = AmmoCount_Max;
-                            GameManager_Project.instance.WeaponAmmoGuage.fillAmount = AmmoCount / AmmoCount_Max;
-                            GameManager_Project.instance.WeaponAmmoTxt.text = AmmoCount.ToString();
+                            UpdateAmmoUI();
                             Anim.SetInteger("WeaponType", 3);
                         }
                         else if (currentItemWeaponType == Item.ItemTypes.SMGSD)
@@ -266,9 +301,16 @@ namespace _2DTopDown
                             AmmoCount = 20;
                             AmmoCount_Max = 20;
                             AmmoCount = AmmoCount_Max;
-                            GameManager_Project.instance.WeaponAmmoGuage.fillAmount = AmmoCount / AmmoCount_Max;
-                            GameManager_Project.instance.WeaponAmmoTxt.text = AmmoCount.ToString();
+                            UpdateAmmoUI();
                             Anim.SetInteger("WeaponType", 4);
+                        }
+                        else if (currentItemWeaponType == Item.ItemTypes.DMR)
+                        {
+                            AmmoCount = 6;
+                            AmmoCount_Max = 6;
+                            AmmoCount = AmmoCount_Max;
+                            UpdateAmmoUI();
+                            Anim.SetInteger("WeaponType", 5);
                         }
                         else
                         {
@@ -280,6 +322,16 @@ namespace _2DTopDown
             if (GameManager_Project.instance != null)
             {
                 GameManager_Project.instance.SelectWeapon(weaponType);
+            }
+        }
+
+        // UI 로직 최적화
+        private void UpdateAmmoUI()
+        {
+            if (GameManager_Project.instance != null)
+            {
+                GameManager_Project.instance.WeaponAmmoGuage.fillAmount = AmmoCount / AmmoCount_Max;
+                GameManager_Project.instance.WeaponAmmoTxt.text = AmmoCount.ToString();
             }
         }
 
@@ -296,7 +348,7 @@ namespace _2DTopDown
                     WeaponAttackSFX[0].Play();
                     Anim.SetBool("Attack", true);
                     CancelInvoke("AttackOver");
-                    Invoke("AttackOver", 0.6f);
+                    Invoke("AttackOver", 0.8f);
                     break;
                 case WeaponTypes.Pistol:
                     // 탄약소모를 확인하기 위한 UI 갱신
@@ -367,7 +419,7 @@ namespace _2DTopDown
                             birdshot.transform.Rotate(0, Random.Range(-15f, 15f), 0); // 산탄 범위 넓게
                         }
 
-                        CamaraRecoil.DefaultVelocity = new Vector3(0, -2, 0);
+                        CamaraRecoil.DefaultVelocity = new Vector3(0, -2.5f, 0);
                         CamaraRecoil.ImpulseDefinition.ImpulseShape = CinemachineImpulseDefinition.ImpulseShapes.Recoil;
                         CamaraRecoil.GenerateImpulse();
                         WeaponAttackSFX[3].Play();
@@ -378,13 +430,13 @@ namespace _2DTopDown
                             DropWeapon();
                         }
                     }
-                    if (currentItemWeaponType == Item.ItemTypes.SMGSD)
+                    else if (currentItemWeaponType == Item.ItemTypes.SMGSD)
                     {
                         AmmoCount--;
                         GameManager_Project.instance.WeaponAmmoGuage.fillAmount = AmmoCount / AmmoCount_Max;
                         GameManager_Project.instance.WeaponAmmoTxt.text = AmmoCount.ToString();
 
-                        CreateMuzzleFlash(3);
+                        CreateMuzzleFlashSD(3);
 
                         GameObject bulletAR = Instantiate(projectilePrefab[0], FireArmsPivot[1].position, FireArmsPivot[1].rotation);
                         bulletAR.transform.LookAt(mousePointer.transform);
@@ -395,6 +447,28 @@ namespace _2DTopDown
                         CamaraRecoil.ImpulseDefinition.ImpulseShape = CinemachineImpulseDefinition.ImpulseShapes.Recoil;
                         CamaraRecoil.GenerateImpulse();
                         WeaponAttackSFX[4].Play();
+
+                        if (AmmoCount <= 0)
+                        {
+                            DropWeapon();
+                        }
+                    }
+                    else if (currentItemWeaponType == Item.ItemTypes.DMR)
+                    {
+                        AmmoCount--;
+                        GameManager_Project.instance.WeaponAmmoGuage.fillAmount = AmmoCount / AmmoCount_Max;
+                        GameManager_Project.instance.WeaponAmmoTxt.text = AmmoCount.ToString();
+
+                        CreateMuzzleFlash(1);
+
+                        GameObject bulletDMR = Instantiate(projectilePrefab[3], FireArmsPivot[4].position, FireArmsPivot[4].rotation);
+                        bulletDMR.transform.LookAt(mousePointer.transform);
+                        bulletDMR.transform.Rotate(0, Random.Range(-1.5f, 1.5f), 0);
+
+                        CamaraRecoil.DefaultVelocity = new Vector3(0, -3f, 0);
+                        CamaraRecoil.ImpulseDefinition.ImpulseShape = CinemachineImpulseDefinition.ImpulseShapes.Recoil;
+                        CamaraRecoil.GenerateImpulse();
+                        WeaponAttackSFX[5].Play();
 
                         if (AmmoCount <= 0)
                         {
@@ -417,15 +491,40 @@ namespace _2DTopDown
             {
                 // FireArmsPivot 위치와 회전값으로 생성
                 GameObject flash = Instantiate(MuzzleFlashs[index], FireArmsPivot[index].position, FireArmsPivot[index].rotation);
+                
+                // 총구 연막생성
+                GameObject FireSmoke = Instantiate(GunSmoke, FireArmsPivot[index].position, FireArmsPivot[index].rotation);
+
+                // 총구 위치를 계속 따라가게 하려면 부모를 설정 (선택 사항)
+                flash.transform.SetParent(FireArmsPivot[index]);
+                FireSmoke.transform.SetParent(FireArmsPivot[index]);
+
+                // 머즐 플래시 회전값 설정
+                flash.transform.Rotate(0, 270, 0);
+                FireSmoke.transform.Rotate(0, 270, 0);
+
+                // 아주 짧은 시간 뒤에 자동 삭제 (0.15초)
+                Destroy(flash, 0.15f);
+                Destroy(FireSmoke, 0.5f);
+            }
+        }
+        // 머즐 플래시 로직 (소음기)
+        private void CreateMuzzleFlashSD(int index)
+        {
+            // 배열 범위를 벗어나지 않는지 확인하고 프리팹이 있는지 체크
+            if (MuzzleFlashs != null && MuzzleFlashs.Length > index && MuzzleFlashs[index] != null)
+            {
+                // FireArmsPivot 위치와 회전값으로 생성
+                GameObject flash = Instantiate(MuzzleFlashs[index], FireArmsPivot[index].position, FireArmsPivot[index].rotation);
 
                 // 총구 위치를 계속 따라가게 하려면 부모를 설정 (선택 사항)
                 flash.transform.SetParent(FireArmsPivot[index]);
 
-                // 머즐 플래시 회전값 설정 (x값은 탑다운에 맞게 90로 설정)
-                flash.transform.Rotate(90, 0, 0);
+                // 머즐 플래시 회전값 설정
+                flash.transform.Rotate(0, 270, 0);
 
-                // 아주 짧은 시간 뒤에 자동 삭제 (0.05초)
-                Destroy(flash, 0.05f);
+                // 아주 짧은 시간 뒤에 자동 삭제 (0.5초)
+                Destroy(flash, 0.5f);
             }
         }
 
@@ -484,7 +583,7 @@ namespace _2DTopDown
         private void AlertEnemies()
         {
             // 기존의 hitTestPivot에서 플레이어의 위치인 transform으로 대체
-            RaycastHit[] hits = Physics.SphereCastAll(transform.position, 20.0f, transform.up);
+            RaycastHit[] hits = Physics.SphereCastAll(transform.position, 25.0f, transform.up);
             foreach (RaycastHit hit in hits)
             {
                 if (hit.collider != null && hit.collider.tag == "Enemy")

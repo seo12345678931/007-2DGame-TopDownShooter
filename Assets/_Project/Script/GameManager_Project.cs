@@ -127,6 +127,12 @@ namespace _2DTopDown
                         WeaponIcon.sprite = WeaponIcons[4];
                         ItemWeaponIcon.sprite = WeaponIcons[4];
                     }
+                    else if(Player.instance.currentItemWeaponType == Item.ItemTypes.DMR)
+                    {
+                        WeaponNameTxt.text = "M1A DMR";
+                        WeaponIcon.sprite = WeaponIcons[5];
+                        ItemWeaponIcon.sprite = WeaponIcons[5];
+                    }
                     else if (Player.instance.currentItemWeaponType == Item.ItemTypes.Null_Weapon)
                     {
                         WeaponNameTxt.text = "None";

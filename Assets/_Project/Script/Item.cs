@@ -84,6 +84,11 @@ namespace _2DTopDown
                     Player.instance.WeaponItemEquipSFX.Play();
                     Destroy(gameObject);
                     break;
+                case ItemTypes.DMR:
+                    Player.instance.EquipItem(ItemTypes.DMR);
+                    Player.instance.WeaponItemEquipSFX.Play();
+                    Destroy(gameObject);
+                    break;
             }
         }
     }
