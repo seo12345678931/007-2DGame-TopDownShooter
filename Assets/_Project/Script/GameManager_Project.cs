@@ -10,6 +10,12 @@ namespace _2DTopDown
 {
     public class GameManager_Project : MonoBehaviour
     {
+        // 스테이지별 맵에 담을 변수
+        public static int SelectedStageIndex = 1;
+
+        [Header("맵")]
+        public GameObject[] Maps;
+
         [Header("게임 UI")]
         public TextMeshProUGUI TimerTxt;
         public TextMeshProUGUI ScoreTxt;
@@ -42,8 +48,9 @@ namespace _2DTopDown
         public Toggle[] WeaponSelectToggles;
         //public GameObject WeaponSelectedImage;
 
-        [Header("체력 0에 도달 시 게임오버 설정")]
+        [Header("게임오버 및 게임 클리어 설정")]
         public bool gameOver = false;
+        public bool gameClear = false;
 
         [HideInInspector] // 게임점수. 스크립트만 제어할 것이기에 인스펙터를 숨김
         public int currentScore = 0;
@@ -73,6 +80,11 @@ namespace _2DTopDown
         // Start is called once before the first execution of Update after the MonoBehaviour is created
         void Start()
         {
+            if (Maps != null && SelectedStageIndex < Maps.Length)
+            {
+                Instantiate(Maps[SelectedStageIndex], Vector3.zero, Quaternion.identity);
+            }
+
             Time.timeScale = 1;
             ScoreTxt.text = $"Score: {currentScore}";
             PistolReload_ArlarmTxt.enabled = false ;
@@ -90,6 +102,17 @@ namespace _2DTopDown
             if (gameOver && Input.GetKeyDown(KeyCode.R))
             {
                 SceneManager.LoadScene("MainGame");
+            }
+
+            if(gameOver && Input.GetKeyDown(KeyCode.Escape))
+            {
+                SceneManager.LoadScene("Lobby");
+            }
+
+            if(gameClear && Input.GetKeyDown(KeyCode.R))
+            {
+                SceneManager.LoadScene("MainGame");
+                SelectedStageIndex++;   // 다음 스테이지로 넘어가기 위해 맵 선택 인덱스 값 증가
             }
         }
 

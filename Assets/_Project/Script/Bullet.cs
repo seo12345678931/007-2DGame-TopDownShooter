@@ -36,18 +36,18 @@ namespace _2DTopDown
             if(isMoving) transform.Translate(transform.forward * speed, Space.World);
         }
 
-        private void OnTriggerEnter(Collider other)
+        private void OnCollisionEnter(Collision other)
         {
-            if(TriggerTarget == Target.Enemy && other.CompareTag("Enemy") || other.CompareTag("Dummy"))
+            if(TriggerTarget == Target.Enemy && other.gameObject.tag == "Enemy" || other.gameObject.tag == "Dummy")
             {
                 other.gameObject.GetComponent<Enemy_Info>().TakeDamage(Damage);
                 Destroy(gameObject);
             }
-            else if(TriggerTarget == Target.Player && other.CompareTag("Player"))
+            else if(TriggerTarget == Target.Player && other.gameObject.tag == "Player")
             {
                 other.gameObject.GetComponent < Player>().DamagePlayer(Damage);
             }
-            else if (other.CompareTag("Object"))
+            else if (other.gameObject.tag == "Object")
             {
                 LifeTime = 0;
                 gameObject.GetComponent<Rigidbody>().isKinematic = true;

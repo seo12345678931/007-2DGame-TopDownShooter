@@ -37,6 +37,8 @@ namespace _2DTopDown
         {
             if(ExitReady && Input.GetKeyDown(KeyCode.E))
             {
+                // 게임 매니저를 통해서 게임 클리어 했다고 알리기
+                GameManager_Project.instance.gameClear = true;
                 GameManager_Project.instance.GameClear.SetActive(true);
                 Time.timeScale = 0;
             }

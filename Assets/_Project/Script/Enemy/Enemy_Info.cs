@@ -52,7 +52,11 @@ namespace _2DTopDown
 				[Header("적 총알 투사체")]
 				public GameObject[] proyectilePrefab;
 
-				delegate void InitState();
+				[Header("파티클 (머즐 플래시 & 총구연기)")]
+        public GameObject[] MuzzleFlashs;
+        public GameObject GunSmoke;
+
+        delegate void InitState();
 				delegate void UpdateState();
 				delegate void EndState();
 				InitState _initState;
@@ -407,12 +411,14 @@ namespace _2DTopDown
 										}
 										break;
 								case Enemy_WeaponType.SMG:
-										GameObject bullet = Instantiate(proyectilePrefab[0], weaponPivot.position, weaponPivot.rotation) as GameObject;
+										CreateMuzzleFlash(0);
+                    GameObject bullet = Instantiate(proyectilePrefab[0], weaponPivot.position, weaponPivot.rotation) as GameObject;
 										bullet.transform.Rotate(0, Random.Range(-7.5f, 7.5f), 0);
                     WeaponFiringSFX[1].Play();
                     break;
 								case Enemy_WeaponType.Shotgun:
-										for (int i = 0; i < 5; i++)
+                    CreateMuzzleFlash(1);
+                    for (int i = 0; i < 5; i++)
 										{
 												GameObject birdshot = Instantiate(proyectilePrefab[1], weaponPivot.position, weaponPivot.rotation) as GameObject;
 												birdshot.transform.Rotate(0, Random.Range(-15, 15), 0);
@@ -421,6 +427,32 @@ namespace _2DTopDown
                     break;
 						}
 				}
+
+        private void CreateMuzzleFlash(int index)
+        {
+            // 배열 범위를 벗어나지 않는지 확인하고 프리팹이 있는지 체크
+            if (MuzzleFlashs != null && MuzzleFlashs.Length > index && MuzzleFlashs[index] != null)
+            {
+                // FireArmsPivot 위치와 회전값으로 생성
+                GameObject flash = Instantiate(MuzzleFlashs[index], weaponPivot.position, weaponPivot.rotation);
+
+                // 총구 연막생성
+                GameObject FireSmoke = Instantiate(GunSmoke, weaponPivot.position, weaponPivot.rotation);
+
+                // 총구 위치를 계속 따라가게 하려면 부모를 설정 (선택 사항)
+                flash.transform.SetParent(weaponPivot);
+                FireSmoke.transform.SetParent(weaponPivot);
+
+                // 머즐 플래시 회전값 설정
+                flash.transform.Rotate(0, 180, 0);
+                FireSmoke.transform.Rotate(0, 180, 0);
+
+                // 아주 짧은 시간 뒤에 자동 삭제 (0.15초)
+                Destroy(flash, 0.15f);
+                Destroy(FireSmoke, 0.5f);
+            }
+        }
+
         ////////////////////////// MISC FUNCTIONS //////////////////////////
         private void RandomRotate()
 				{

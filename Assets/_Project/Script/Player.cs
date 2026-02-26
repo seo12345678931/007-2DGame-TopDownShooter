@@ -7,11 +7,8 @@
  */
 
 using System.Collections;
-using TMPro;
 using Unity.Cinemachine;
-using Unity.VisualScripting;
 using UnityEngine;
-using UnityEngine.UI;
 using static _2DTopDown.Item;
 
 namespace _2DTopDown
@@ -52,23 +49,28 @@ namespace _2DTopDown
         [Header("반동 연출을 위한 시네머신 제어")]
         public CinemachineImpulseSource CamaraRecoil;
 
-        [Header("조준사격 연출을 위한 시네머신 제어")]
-        public CinemachineCamera vCam; // 인스펙터에서 가상 카메라를 할당하세요.
+        [Header("조준사격 연출 및 마우스 포인터를 위한 시네머신 제어")]
+        public CinemachineCamera virtualCamera;
         public float normalSize = 10f; // 기본 직교 크기
         public float aimSize = 15f;    // 조준 시 직교 크기 (현재 설정은 줌 아웃)
         public float zoomSpeed = 10f;
 
         [Header("사운드")]
         public AudioSource[] FootStep;  // 향후 여러 발소리 추가예정
-        public AudioSource[] WeaponAttackSFX;
-        public AudioSource WeaponItemEquipSFX;
+        public AudioSource[] WeaponAttackSFX;   // 무기발사음
+        public AudioSource WeaponItemEquipSFX;  // 아이템 획득
+        public AudioSource PlayerDangerSFX; // 체력 20% 이하 시 특정소리를 반복출력
+
+        // 피격, 사망 사운드는 랜덤함수로 출력
+        public AudioSource[] PlayerHitSFX;
+        public AudioSource[] PlayerDeadSFX;
 
         [Header("아이템 무기 종류를 저장할 변수")]
         public Item.ItemTypes currentItemWeaponType;
 
         // 발소리 간격 제어
         private float footStepTimer;
-        private float footStepInterval = 0.4f;
+        private float footStepInterval = 0.3f;
 
         // 근접무기 피해량 제어
         private float MeleeDamage = 50f;
@@ -84,12 +86,20 @@ namespace _2DTopDown
         private float fireRate = 0f;    // 총알 사이의 시간 간격 (낮을수록 빠름)
         private float nextFireTime = 0f;   // 다음 발사 가능한 시점 (계산용)
 
-        public static Player instance; // 싱글톤 인스턴스 추가
+        // 마우스 포인터를 위한 시네머신 제어
+        private CinemachinePositionComposer composer;
 
+        public static Player instance; // 싱글톤 인스턴스 추가
         private void Awake()
         {
             // 싱글톤 초기화
             if (instance == null) instance = this;
+
+            // 컴포저 컴포넌트를 미리 가져오기
+            if (virtualCamera != null)
+            {
+                composer = virtualCamera.GetComponent<CinemachinePositionComposer>();
+            }
         }
 
         private void Start()
@@ -140,7 +150,7 @@ namespace _2DTopDown
                     if (Input.GetMouseButtonDown(0) && Time.time >= nextFireTime)
                     {
                         // 원래 fireRate는 연사총에만 넣을 예정이나 근접공격 모션이 안맞아 추가함
-                        fireRate = 0.8f;
+                        fireRate = 0.5f;
                         Attack();
                         nextFireTime = Time.time + fireRate;
                     }
@@ -195,12 +205,12 @@ namespace _2DTopDown
                         if (Input.GetMouseButton(1))
                         {
                             // Lens.OrthographicSize로 접근합니다.
-                            vCam.Lens.OrthographicSize = Mathf.Lerp(vCam.Lens.OrthographicSize, aimSize, Time.deltaTime * zoomSpeed);
+                            virtualCamera.Lens.OrthographicSize = Mathf.Lerp(virtualCamera.Lens.OrthographicSize, aimSize, Time.deltaTime * zoomSpeed);
                         }
                         else
                         {
                             // 떼면 다시 원래 크기로 복귀
-                            vCam.Lens.OrthographicSize = Mathf.Lerp(vCam.Lens.OrthographicSize, normalSize, Time.deltaTime * zoomSpeed);
+                            virtualCamera.Lens.OrthographicSize = Mathf.Lerp(virtualCamera.Lens.OrthographicSize, normalSize, Time.deltaTime * zoomSpeed);
                         }
                     }
                     if (currentItemWeaponType == Item.ItemTypes.Null_Weapon)
@@ -238,16 +248,48 @@ namespace _2DTopDown
             }
         }
 
+        private float cameraShiftSpeed = 5f; // 카메라 이동 부드러움 정도
         // 마우스 포인터
         public void UpdateAim()
         {
+            // 1. 기존 마우스 포인터 및 회전 로직
             Vector3 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
             mousePos.y = transform.position.y;
             mousePointer.transform.position = mousePos;
-            float deltaY = mousePos.z - transform.position.z;
+
+            float deltaZ = mousePos.z - transform.position.z;
             float deltaX = mousePos.x - transform.position.x;
-            float angleInDegrees = Mathf.Atan2(deltaY, deltaX) * 180 / Mathf.PI;
+
+            // 각도 계산: $angle = \arctan2(\Delta Z, \Delta X) \times \frac{180}{\pi}$
+            float angleInDegrees = Mathf.Atan2(deltaZ, deltaX) * Mathf.Rad2Deg;
             transform.eulerAngles = new Vector3(0, -angleInDegrees, 0);
+
+            // 2. 시네머신 Screen Position 제어 로직
+            if (composer != null)
+            {
+                // 참고: 시네머신 Screen Y는 아래로 갈수록 값이 커지므로 위를 보려면 값을 줄여야 할 수도 있습니다.
+
+                // 기본값
+                float targetX = 0f;
+                float targetY = 0f;
+
+                // 마우스가 플레이어보다 왼쪽에 있으면 (deltaX < 0)
+                // 캐릭터를 오른쪽으로 밀어서 왼쪽 시야를 더 확보 (Screen X 증가)
+                if (deltaX < 0) targetX = 0f + 0.05f;
+                else targetX = 0f - 0.05f;
+
+                // 마우스가 플레이어보다 위쪽에 있으면 (deltaZ > 0)
+                // 캐릭터를 아래쪽으로 밀어서 위쪽 시야를 더 확보 (Screen Y 증가)
+                if (deltaZ > 0) targetY = 0f + 0.05f;
+                else targetY = 0f - 0.05f;
+
+                // 부드러운 카메라 이동을 위해 Lerp 사용
+                Vector2 currentPos = composer.Composition.ScreenPosition;
+                currentPos.x = Mathf.Lerp(currentPos.x, targetX, Time.deltaTime * cameraShiftSpeed);
+                currentPos.y = Mathf.Lerp(currentPos.y, targetY, Time.deltaTime * cameraShiftSpeed);
+
+                composer.Composition.ScreenPosition = currentPos;
+            }
         }
 
         // 아이템 습득 시 호출될 함수 추가
@@ -348,7 +390,7 @@ namespace _2DTopDown
                     WeaponAttackSFX[0].Play();
                     Anim.SetBool("Attack", true);
                     CancelInvoke("AttackOver");
-                    Invoke("AttackOver", 0.8f);
+                    Invoke("AttackOver", 0.5f);
                     break;
                 case WeaponTypes.Pistol:
                     // 탄약소모를 확인하기 위한 UI 갱신
@@ -371,7 +413,7 @@ namespace _2DTopDown
 
                     // 발사음
                     WeaponAttackSFX[1].Play();
-                    AlertEnemies();
+                    AlertEnemies(0);
                     if (AmmoCount <= 0)
                     {
                         StartCoroutine(ReloadPistol());
@@ -397,7 +439,7 @@ namespace _2DTopDown
                         CamaraRecoil.GenerateImpulse();
                         WeaponAttackSFX[2].Play();
 
-                        AlertEnemies();
+                        AlertEnemies(1);
                         if (AmmoCount <= 0)
                         {
                             DropWeapon();
@@ -424,7 +466,7 @@ namespace _2DTopDown
                         CamaraRecoil.GenerateImpulse();
                         WeaponAttackSFX[3].Play();
 
-                        AlertEnemies();
+                        AlertEnemies(2);
                         if (AmmoCount <= 0)
                         {
                             DropWeapon();
@@ -448,6 +490,7 @@ namespace _2DTopDown
                         CamaraRecoil.GenerateImpulse();
                         WeaponAttackSFX[4].Play();
 
+                        AlertEnemiesSD(3);
                         if (AmmoCount <= 0)
                         {
                             DropWeapon();
@@ -470,6 +513,7 @@ namespace _2DTopDown
                         CamaraRecoil.GenerateImpulse();
                         WeaponAttackSFX[5].Play();
 
+                        AlertEnemies(4);
                         if (AmmoCount <= 0)
                         {
                             DropWeapon();
@@ -573,6 +617,9 @@ namespace _2DTopDown
             // 필드무기는 아무것도 없는 상태로 교체 & 모션과 무기는 권총으로 교체
             SetWeapon(WeaponTypes.Pistol);
             EquipItem(ItemTypes.Null_Weapon);
+
+            // DMR 조준사격 도중 모든 탄약이 소진되면 렌즈값을 다시 원래대로 복귀하기
+            virtualCamera.Lens.OrthographicSize = normalSize;
         }
 
         private void AttackOver()
@@ -580,19 +627,27 @@ namespace _2DTopDown
             Anim.SetBool("Attack", false);
         }
 
-        private void AlertEnemies()
+        private void AlertEnemies(int index)
         {
-            // 기존의 hitTestPivot에서 플레이어의 위치인 transform으로 대체
-            RaycastHit[] hits = Physics.SphereCastAll(transform.position, 25.0f, transform.up);
+            RaycastHit[] hits = Physics.SphereCastAll(FireArmsPivot[index].position, 25.0f, FireArmsPivot[index].up);
             foreach (RaycastHit hit in hits)
             {
                 if (hit.collider != null && hit.collider.tag == "Enemy")
                 {
                     hit.collider.GetComponent<Enemy_Info>().SetAlertPos(transform.position);
                 }
-                else
+            }
+        }
+
+        // 소음기용
+        private void AlertEnemiesSD(int index)
+        {
+            RaycastHit[] hits = Physics.SphereCastAll(FireArmsPivot[index].position, 5.0f, FireArmsPivot[index].up);
+            foreach (RaycastHit hit in hits)
+            {
+                if (hit.collider != null && hit.collider.tag == "Enemy")
                 {
-                    return;
+                    hit.collider.GetComponent<Enemy_Info>().SetAlertPos(transform.position);
                 }
             }
         }
@@ -606,9 +661,14 @@ namespace _2DTopDown
                 {
                     RaycastHit forwarHit = new RaycastHit();
                     Physics.Raycast(MeleePivot.position, hit.transform.position - transform.position, out forwarHit);
-                    if (forwarHit.collider != null && forwarHit.collider.tag == "Enemy" || forwarHit.collider.tag == "Dummy")
+                    if (forwarHit.collider.tag == "Dummy")
                     {
                         forwarHit.collider.GetComponent<Enemy_Info>().TakeDamage(MeleeDamage);
+                    }
+                    if(forwarHit.collider != null && forwarHit.collider.tag == "Enemy")
+                    {
+                        // 근접 피해량 뻥튀기 (50 * 2 = 100)
+                        forwarHit.collider.GetComponent<Enemy_Info>().TakeDamage(MeleeDamage * 2);
                     }
                 }
             }
@@ -625,6 +685,11 @@ namespace _2DTopDown
             CamaraRecoil.DefaultVelocity = new Vector3(1, 0, 1);
             CamaraRecoil.ImpulseDefinition.ImpulseShape = CinemachineImpulseDefinition.ImpulseShapes.Bump;
             CamaraRecoil.GenerateImpulse();
+
+
+            // 피격 사운드 랜덤 재생
+            int randomIndex = Random.Range(0, PlayerHitSFX.Length);
+            PlayerHitSFX[randomIndex].Play();
 
             // UI Image로 피격연출
             GameManager_Project.instance.StartCoroutine(isHit());
@@ -654,6 +719,9 @@ namespace _2DTopDown
 
                 GameManager_Project.instance.HealthBar.fillAmount = currentHP / maxHP;
                 GameManager_Project.instance.HealthNum.text = $"{currentHP:F0} / {maxHP:F0}";
+
+                // 신음소리 출력
+                PlayerDangerSFX.Play();
             }
 
             if (currentHP <= 0)
@@ -663,17 +731,34 @@ namespace _2DTopDown
         }
         public void PlayerDead()
         {
+            // 애니메이션 발동
             Anim.SetBool("Dead", true);
             Anim_Leg.SetBool("Dead", true);
+
+            // 오브젝트 비활성화 관련 코드
             Anim.transform.parent = null;
             this.enabled = false;
             rb.isKinematic = true;
+
+            // 게임 매니저를 통해서 게임오버 시키기
             GameManager_Project.instance.gameOver = true;
             GameManager_Project.instance.GameOver.SetActive(true);
+
+            // 콜라이더, 트렌스폼 비활성화
             gameObject.GetComponent<Collider>().enabled = false;
             Vector3 pos = Anim.transform.position;
             pos.y = 0.2f;
             Anim.transform.position = pos;
+
+            // 사망 사운드 랜덤 출력
+            int randomIndex = Random.Range(0, PlayerDeadSFX.Length);
+            PlayerDeadSFX[randomIndex].Play();
+
+            // 신음소리 출력 중지
+            PlayerDangerSFX.Stop();
+
+            // -값 안 보이게 고정시키기
+            GameManager_Project.instance.HealthNum.text = $"0 / 100";
         }
 
         // 0.2초 동안 피격 화면 연출하기
@@ -700,6 +785,8 @@ namespace _2DTopDown
 
             GameManager_Project.instance.HealthBar.fillAmount = currentHP / maxHP;
             GameManager_Project.instance.HealthNum.text = $"{currentHP:F0} / {maxHP:F0}";
+
+            PlayerDangerSFX.Stop();
         }
     }
 }
