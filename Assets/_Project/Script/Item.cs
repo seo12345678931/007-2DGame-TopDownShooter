@@ -54,6 +54,13 @@ namespace _2DTopDown
 
         public void PickUp()
         {
+            // 해당 무기의 탄약이 가득 차있거나 이미 획득했다면 함수 빠져나오기
+            if (Player.instance.currentItemWeaponType == itemTypes &&
+        Player.instance.AmmoCount >= Player.instance.AmmoCount_Max)
+            {
+                return;
+            }
+
             switch (itemTypes)
             {
                 case ItemTypes.Null_Weapon:
@@ -65,8 +72,8 @@ namespace _2DTopDown
                     {
                         return;
                     }
-
                     Player.instance.PlayerHeal(50);
+                    Player.instance.HPItem_SFX.Play();
                     Destroy(gameObject);
                     break;
                 case ItemTypes.Rifle:

@@ -59,28 +59,29 @@ namespace _2DTopDown
         public AudioSource[] FootStep;  // 향후 여러 발소리 추가예정
         public AudioSource[] WeaponAttackSFX;   // 무기발사음
         public AudioSource WeaponItemEquipSFX;  // 아이템 획득
+        public AudioSource HPItem_SFX;  // 플레이어 체력회복
         public AudioSource PlayerDangerSFX; // 체력 20% 이하 시 특정소리를 반복출력
+        public AudioSource PistolReloadSFX; // 권총장전
 
         // 피격, 사망 사운드는 랜덤함수로 출력
         public AudioSource[] PlayerHitSFX;
+        public AudioSource[] PlayerWeapon_HitSFX;
         public AudioSource[] PlayerDeadSFX;
 
         [Header("아이템 무기 종류를 저장할 변수")]
         public Item.ItemTypes currentItemWeaponType;
 
-        // 발소리 간격 제어
-        private float footStepTimer;
-        private float footStepInterval = 0.3f;
-
         // 근접무기 피해량 제어
         private float MeleeDamage = 50f;
 
-        // 탄약량 제어.
-        // 무기종류는 Enum으로 분류되어 있어 public 함수로 따로 정할 수가 없는 상황이라
-        // 스크립트 private 함수로 각각 무기별로 제어하기로 결정
+        // 탄약량 제어. (pistolAmmo_Current / ItemWeaponAmmo_Current 각각 담아낼 변수)
+        // 스크립트를 통해 각각 무기별로 제어할 예정이라 인스펙터를 숨김
         // 체력으로 따지면 AmmoCount => currentHP / AmmoCount_Max => maxHP
-        private float AmmoCount;
-        private float AmmoCount_Max;
+        [HideInInspector]
+        public float pistolAmmo_Current;
+        public float ItemWeaponAmmo_Current;
+        public float AmmoCount;
+        public float AmmoCount_Max;
 
         // 발사간격 제어. 무기별로 발사속도를 제어할 예정이므로 지역변수로 설정하고 0으로 초기화.
         private float fireRate = 0f;    // 총알 사이의 시간 간격 (낮을수록 빠름)
@@ -110,6 +111,8 @@ namespace _2DTopDown
             GameManager_Project.instance.HealthBar.fillAmount = currentHP / maxHP;
             GameManager_Project.instance.HealthNum.text = $"{currentHP:F0} / {maxHP:F0}";
             SetWeapon(WeaponTypes.Knife);
+            pistolAmmo_Current = 7;
+            ItemWeaponAmmo_Current = 0;
         }
 
         private void Update()
@@ -124,22 +127,6 @@ namespace _2DTopDown
             Anim_Leg.SetFloat("yDir", V);
 
             bool isMoving = moveVec.magnitude > 0.1f;
-            // --- 발자국 소리 로직 시작 ---
-            if (isMoving)
-            {
-                footStepTimer += Time.deltaTime; // 움직일 때만 타이머 증가
-
-                if (footStepTimer >= footStepInterval)
-                {
-                    FootStep[0].Play();
-                    footStepTimer = 0f; // 재생 후 타이머 초기화
-                }
-            }
-            else
-            {
-                // 멈췄다 다시 움직일 때 즉시 첫 소리가 나도록 설정
-                footStepTimer = footStepInterval; 
-            }
 
             // 마우스 포인터 갱신
             UpdateAim();
@@ -206,11 +193,13 @@ namespace _2DTopDown
                         {
                             // Lens.OrthographicSize로 접근합니다.
                             virtualCamera.Lens.OrthographicSize = Mathf.Lerp(virtualCamera.Lens.OrthographicSize, aimSize, Time.deltaTime * zoomSpeed);
+                            GameManager_Project.instance.Scope.gameObject.SetActive(true);
                         }
                         else
                         {
                             // 떼면 다시 원래 크기로 복귀
                             virtualCamera.Lens.OrthographicSize = Mathf.Lerp(virtualCamera.Lens.OrthographicSize, normalSize, Time.deltaTime * zoomSpeed);
+                            GameManager_Project.instance.Scope.gameObject.SetActive(false);
                         }
                     }
                     if (currentItemWeaponType == Item.ItemTypes.Null_Weapon)
@@ -275,13 +264,13 @@ namespace _2DTopDown
 
                 // 마우스가 플레이어보다 왼쪽에 있으면 (deltaX < 0)
                 // 캐릭터를 오른쪽으로 밀어서 왼쪽 시야를 더 확보 (Screen X 증가)
-                if (deltaX < 0) targetX = 0f + 0.05f;
-                else targetX = 0f - 0.05f;
+                if (deltaX < 0) targetX = 0f + 0.1f;
+                else targetX = 0f - 0.1f;
 
                 // 마우스가 플레이어보다 위쪽에 있으면 (deltaZ > 0)
                 // 캐릭터를 아래쪽으로 밀어서 위쪽 시야를 더 확보 (Screen Y 증가)
-                if (deltaZ > 0) targetY = 0f + 0.05f;
-                else targetY = 0f - 0.05f;
+                if (deltaZ > 0) targetY = 0f + 0.1f;
+                else targetY = 0f - 0.1f;
 
                 // 부드러운 카메라 이동을 위해 Lerp 사용
                 Vector2 currentPos = composer.Composition.ScreenPosition;
@@ -295,8 +284,25 @@ namespace _2DTopDown
         // 아이템 습득 시 호출될 함수 추가
         public void EquipItem(Item.ItemTypes type)
         {
-            currentItemWeaponType = type; // 어떤 아이템인지 저장
-            SetWeapon(WeaponTypes.ItemWeapon); // 무기 타입을 아이템 무기로 변경
+            // 1. 동일한 무기를 또 먹은 경우 (탄약 보급)
+            if (currentItemWeaponType == type)
+            {
+                UpdateItemWeaponMaxStats(); // 현재 타입의 Max값을 먼저 가져옴
+                ItemWeaponAmmo_Current = AmmoCount_Max; // 보관함 가득 채움
+                AmmoCount = ItemWeaponAmmo_Current; // 현재 탄약 적용
+                UpdateAmmoUI();
+                return;
+            }
+
+            // 2. 새로운 무기를 먹은 경우
+            currentItemWeaponType = type;
+
+            // 무기 종류에 맞는 Max치를 미리 계산해서 보관함에 먼저 넣어줍니다.
+            UpdateItemWeaponMaxStats();
+            ItemWeaponAmmo_Current = AmmoCount_Max;
+
+            // 3. 이제 무기 외형을 바꿉니다. (SetWeapon 내에서 보관함 값을 로드함)
+            SetWeapon(WeaponTypes.ItemWeapon);
         }
 
         // 무기세팅
@@ -304,66 +310,73 @@ namespace _2DTopDown
         {
             if (weaponType != CurrWeapon)
             {
+                // 무기 교체 전 현재 쓰던 무기의 탄약을 먼저 저장하기
+                SaveCurrentAmmo();
+
                 CurrWeapon = weaponType;
                 Anim.SetTrigger("WeaponChange");
                 switch (weaponType)
                 {
                     case WeaponTypes.Knife:
                         Anim.SetInteger("WeaponType", 0);
+                        AmmoCount_Max = 0;
+                        AmmoCount = 0;
                         break;
                     case WeaponTypes.Pistol:
-                        AmmoCount = 7;
-                        AmmoCount_Max = 7;
-                        AmmoCount = AmmoCount_Max;
-                        UpdateAmmoUI();
                         Anim.SetInteger("WeaponType", 1);
+                        AmmoCount_Max = 7;
+                        AmmoCount = pistolAmmo_Current;
                         break;
                     case WeaponTypes.ItemWeapon:
-                        // 아이템 무기일 때
-                        // 아이템 종류에 따라 애니메이션 파라미터나 탄약 설정 가능
-                        // 예: Rifle은 권총 애니메이션(1)을 공유하거나 별도 번호 부여
-                        if (currentItemWeaponType == Item.ItemTypes.Rifle)
-                        {
-                            AmmoCount = 17;
-                            AmmoCount_Max = 17;
-                            AmmoCount = AmmoCount_Max;
-                            UpdateAmmoUI();
-                            Anim.SetInteger("WeaponType", 2);
-                        }
-                        else if (currentItemWeaponType == Item.ItemTypes.Shotgun)
-                        {
-                            AmmoCount = 8;
-                            AmmoCount_Max = 8;
-                            AmmoCount = AmmoCount_Max;
-                            UpdateAmmoUI();
-                            Anim.SetInteger("WeaponType", 3);
-                        }
-                        else if (currentItemWeaponType == Item.ItemTypes.SMGSD)
-                        {
-                            AmmoCount = 20;
-                            AmmoCount_Max = 20;
-                            AmmoCount = AmmoCount_Max;
-                            UpdateAmmoUI();
-                            Anim.SetInteger("WeaponType", 4);
-                        }
-                        else if (currentItemWeaponType == Item.ItemTypes.DMR)
-                        {
-                            AmmoCount = 6;
-                            AmmoCount_Max = 6;
-                            AmmoCount = AmmoCount_Max;
-                            UpdateAmmoUI();
-                            Anim.SetInteger("WeaponType", 5);
-                        }
-                        else
-                        {
-                            Anim.SetInteger("WeaponType", 0);
-                        }
+                        UpdateItemWeaponMaxStats();
+                        AmmoCount = ItemWeaponAmmo_Current;
                         break;
                 }
+                UpdateAmmoUI();
             }
             if (GameManager_Project.instance != null)
             {
                 GameManager_Project.instance.SelectWeapon(weaponType);
+            }
+        }
+        // 각 필드 무기별 최대 탄약수만 결정하는 보조 함수
+        private void UpdateItemWeaponMaxStats()
+        {
+            switch (currentItemWeaponType)
+            {
+                case Item.ItemTypes.Rifle:
+                    AmmoCount_Max = 20;
+                    Anim.SetInteger("WeaponType", 2);
+                    break;
+                case Item.ItemTypes.Shotgun:
+                    AmmoCount_Max = 8;
+                    Anim.SetInteger("WeaponType", 3);
+                    break;
+                case Item.ItemTypes.SMGSD:
+                    AmmoCount_Max = 20;
+                    Anim.SetInteger("WeaponType", 4);
+                    break;
+                case Item.ItemTypes.DMR:
+                    AmmoCount_Max = 9;
+                    Anim.SetInteger("WeaponType", 5);
+                    break;
+                default:
+                    AmmoCount_Max = 0;
+                    Anim.SetInteger("WeaponType", 0);
+                    break;
+            }
+        }
+
+        // 탄약을 소모할 때마다 호출
+        public void SaveCurrentAmmo()
+        {
+            if (CurrWeapon == WeaponTypes.Pistol)
+            {
+                pistolAmmo_Current = AmmoCount;
+            }
+            else if (CurrWeapon == WeaponTypes.ItemWeapon)
+            {
+                ItemWeaponAmmo_Current = AmmoCount;
             }
         }
 
@@ -395,6 +408,9 @@ namespace _2DTopDown
                 case WeaponTypes.Pistol:
                     // 탄약소모를 확인하기 위한 UI 갱신
                     AmmoCount--;
+                    // 게임 튕김이나 예기치 못한 상황일 때 탄약량을 실시간으로 안전하게
+                    // 지키기 위해 한 번 더 생성.
+                    SaveCurrentAmmo();
                     GameManager_Project.instance.WeaponAmmoGuage.fillAmount = AmmoCount / AmmoCount_Max;
                     GameManager_Project.instance.WeaponAmmoTxt.text = AmmoCount.ToString();
 
@@ -423,6 +439,7 @@ namespace _2DTopDown
                     if (currentItemWeaponType == Item.ItemTypes.Rifle)
                     {
                         AmmoCount--;
+                        SaveCurrentAmmo();
                         GameManager_Project.instance.WeaponAmmoGuage.fillAmount = AmmoCount / AmmoCount_Max;
                         GameManager_Project.instance.WeaponAmmoTxt.text = AmmoCount.ToString();
 
@@ -448,6 +465,7 @@ namespace _2DTopDown
                     else if (currentItemWeaponType == Item.ItemTypes.Shotgun)
                     {
                         AmmoCount--;
+                        SaveCurrentAmmo();
                         GameManager_Project.instance.WeaponAmmoGuage.fillAmount = AmmoCount / AmmoCount_Max;
                         GameManager_Project.instance.WeaponAmmoTxt.text = AmmoCount.ToString();
 
@@ -458,7 +476,7 @@ namespace _2DTopDown
                         {
                             GameObject birdshot = Instantiate(projectilePrefab[2], FireArmsPivot[2].position, FireArmsPivot[2].rotation);
                             birdshot.transform.LookAt(mousePointer.transform);
-                            birdshot.transform.Rotate(0, Random.Range(-15f, 15f), 0); // 산탄 범위 넓게
+                            birdshot.transform.Rotate(0, Random.Range(-10f, 10f), 0); // 산탄 범위 넓게
                         }
 
                         CamaraRecoil.DefaultVelocity = new Vector3(0, -2.5f, 0);
@@ -475,6 +493,7 @@ namespace _2DTopDown
                     else if (currentItemWeaponType == Item.ItemTypes.SMGSD)
                     {
                         AmmoCount--;
+                        SaveCurrentAmmo();
                         GameManager_Project.instance.WeaponAmmoGuage.fillAmount = AmmoCount / AmmoCount_Max;
                         GameManager_Project.instance.WeaponAmmoTxt.text = AmmoCount.ToString();
 
@@ -499,6 +518,7 @@ namespace _2DTopDown
                     else if (currentItemWeaponType == Item.ItemTypes.DMR)
                     {
                         AmmoCount--;
+                        SaveCurrentAmmo();
                         GameManager_Project.instance.WeaponAmmoGuage.fillAmount = AmmoCount / AmmoCount_Max;
                         GameManager_Project.instance.WeaponAmmoTxt.text = AmmoCount.ToString();
 
@@ -589,9 +609,10 @@ namespace _2DTopDown
         {
             PistolReload = true;
             GameManager_Project.instance.PistolReload_ArlarmTxt.enabled = true;
+            PistolReloadSFX.Play();
 
-            // 2초 대기
-            yield return new WaitForSeconds(2.0f);
+            // 1초 대기
+            yield return new WaitForSeconds(1.0f);
 
             // 탄약 채우기
             AmmoCount = AmmoCount_Max;
@@ -602,7 +623,6 @@ namespace _2DTopDown
 
             PistolReload = false;
             GameManager_Project.instance.PistolReload_ArlarmTxt.enabled = false;
-            Debug.Log("재장전 완료!");
         }
 
         public void DropWeapon()
@@ -629,7 +649,7 @@ namespace _2DTopDown
 
         private void AlertEnemies(int index)
         {
-            RaycastHit[] hits = Physics.SphereCastAll(FireArmsPivot[index].position, 25.0f, FireArmsPivot[index].up);
+            RaycastHit[] hits = Physics.SphereCastAll(FireArmsPivot[index].position, 10.0f, FireArmsPivot[index].up);
             foreach (RaycastHit hit in hits)
             {
                 if (hit.collider != null && hit.collider.tag == "Enemy")
@@ -690,6 +710,8 @@ namespace _2DTopDown
             // 피격 사운드 랜덤 재생
             int randomIndex = Random.Range(0, PlayerHitSFX.Length);
             PlayerHitSFX[randomIndex].Play();
+            int randomIndex_Impact = Random.Range(0, PlayerWeapon_HitSFX.Length);
+            PlayerWeapon_HitSFX[randomIndex_Impact].Play();
 
             // UI Image로 피격연출
             GameManager_Project.instance.StartCoroutine(isHit());

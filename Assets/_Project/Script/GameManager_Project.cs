@@ -11,9 +11,9 @@ namespace _2DTopDown
     public class GameManager_Project : MonoBehaviour
     {
         // 스테이지별 맵에 담을 변수
-        public static int SelectedStageIndex = 1;
+        public static int SelectedStageIndex = 0;
 
-        [Header("맵")]
+        [Header("생성할 맵에 담을 변수")]
         public GameObject[] Maps;
 
         [Header("게임 UI")]
@@ -36,6 +36,7 @@ namespace _2DTopDown
         public Image WeaponAmmoGuage;
         public Sprite[] WeaponIcons;
         public Sprite WeaponNullIcon;   // 아이템 무기에 담긴 탄약이 모두 소진되면 빈 아이콘으로 돌아오기
+        public Image Scope;
 
         [Tooltip("3번 무기 슬롯에 표시할 아이콘 제어")]
         public Image ItemWeaponIcon;
@@ -91,28 +92,58 @@ namespace _2DTopDown
             PlayerHitEffect.SetActive(false);
             PlayerDangerEffect.SetActive(false);
             GameOver.SetActive(false);
+            gameOver = false;
             GameClear.SetActive(false);
+            gameClear = false;
+            Scope.gameObject.SetActive(false);
         }
 
-        // Update is called once per frame
         void Update()
         {
             TimerTxt.text = TimeSpan.FromSeconds(Time.timeSinceLevelLoad).ToString("mm\\:ss");
 
-            if (gameOver && Input.GetKeyDown(KeyCode.R))
+            if (gameOver == true)
             {
-                SceneManager.LoadScene("MainGame");
+                if(Input.GetKeyDown(KeyCode.R))
+                {
+                    SceneManager.LoadScene("MainGame");
+                }
+                else if(Input.GetKeyDown(KeyCode.Escape))
+                {
+                    SelectedStageIndex = 0;
+                    SceneManager.LoadScene("Lobby");
+                }
             }
 
-            if(gameOver && Input.GetKeyDown(KeyCode.Escape))
+            if(gameClear == true)
             {
-                SceneManager.LoadScene("Lobby");
-            }
+                if (Input.GetKeyDown(KeyCode.R))
+                {
+                    // [디버깅 로그] 현재 상태를 콘솔창에서 확인하기 위함
+                    Debug.Log($"[Clear] 현재 인덱스: {SelectedStageIndex}, 총 맵 수: {Maps.Length}");
 
-            if(gameClear && Input.GetKeyDown(KeyCode.R))
-            {
-                SceneManager.LoadScene("MainGame");
-                SelectedStageIndex++;   // 다음 스테이지로 넘어가기 위해 맵 선택 인덱스 값 증가
+                    // 1. 현재 맵이 마지막 맵(인덱스 2)인지 확인
+                    // Maps.Length가 3이면, Maps.Length - 1은 2입니다.
+                    if (SelectedStageIndex >= Maps.Length - 1)
+                    {
+                        Debug.Log("마지막 스테이지입니다. 로비로 이동합니다.");
+
+                        // [중요] 다음 게임을 위해 인덱스를 0으로 초기화하고 로비로 이동
+                        SceneManager.LoadScene("Lobby");
+                        SelectedStageIndex = 0;
+                    }
+                    else
+                    {
+                        // 2. 아직 다음 맵이 남아있다면 인덱스 증가 후 재시작
+                        SelectedStageIndex++;
+                        SceneManager.LoadScene("MainGame");
+                    }
+                }
+                else if (Input.GetKeyDown(KeyCode.Escape))
+                {
+                    SelectedStageIndex = 0;
+                    SceneManager.LoadScene("Lobby");
+                }
             }
         }
 
@@ -125,11 +156,15 @@ namespace _2DTopDown
                     WeaponAmmoTxt.text = "";
                     WeaponIcon.sprite = WeaponIcons[0];
                     SetToggleState(0);
+                    Scope.gameObject.SetActive(false);
                     break;
                 case Player.WeaponTypes.Pistol:
                     WeaponNameTxt.text = "1911 Pistol";
                     WeaponIcon.sprite = WeaponIcons[1];
                     SetToggleState(1);
+                    // 원래는 조준사격 상태에서 탄약이 소진 될 때 Player 스크립트로 감춰지게 제어할 예정이었으나
+                    // 이상하게도 false가 안 먹히는 문제가 발생해 어쩔 수 없이 게임매니저에서 제어하기로 결정
+                    Scope.gameObject.SetActive(false);
                     break;
                 case Player.WeaponTypes.ItemWeapon:
                     if (Player.instance.currentItemWeaponType == Item.ItemTypes.Rifle)
