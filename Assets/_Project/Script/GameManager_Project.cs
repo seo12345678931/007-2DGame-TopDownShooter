@@ -23,9 +23,10 @@ namespace _2DTopDown
         public TextMeshProUGUI WeaponAmmoTxt;
         public TextMeshProUGUI PistolReload_ArlarmTxt;
 
-        [Header("팝업(게임오버, 게임 클리어)")]
+        [Header("팝업(게임오버, 게임 클리어, 일시정지)")]
         public GameObject GameOver;
         public GameObject GameClear;
+        public GameObject GamePause;
 
         [Header("게임 UI/ 체력")]
         public Image HealthBar;
@@ -92,10 +93,9 @@ namespace _2DTopDown
             PlayerHitEffect.SetActive(false);
             PlayerDangerEffect.SetActive(false);
             GameOver.SetActive(false);
-            gameOver = false;
             GameClear.SetActive(false);
-            gameClear = false;
             Scope.gameObject.SetActive(false);
+            GamePause.SetActive(false);
         }
 
         void Update()
@@ -114,37 +114,38 @@ namespace _2DTopDown
                     SceneManager.LoadScene("Lobby");
                 }
             }
-
-            if(gameClear == true)
+        
+            if(Input.GetKeyDown(KeyCode.Escape))
             {
-                if (Input.GetKeyDown(KeyCode.R))
-                {
-                    // [디버깅 로그] 현재 상태를 콘솔창에서 확인하기 위함
-                    Debug.Log($"[Clear] 현재 인덱스: {SelectedStageIndex}, 총 맵 수: {Maps.Length}");
-
-                    // 1. 현재 맵이 마지막 맵(인덱스 2)인지 확인
-                    // Maps.Length가 3이면, Maps.Length - 1은 2입니다.
-                    if (SelectedStageIndex >= Maps.Length - 1)
-                    {
-                        Debug.Log("마지막 스테이지입니다. 로비로 이동합니다.");
-
-                        // [중요] 다음 게임을 위해 인덱스를 0으로 초기화하고 로비로 이동
-                        SceneManager.LoadScene("Lobby");
-                        SelectedStageIndex = 0;
-                    }
-                    else
-                    {
-                        // 2. 아직 다음 맵이 남아있다면 인덱스 증가 후 재시작
-                        SelectedStageIndex++;
-                        SceneManager.LoadScene("MainGame");
-                    }
-                }
-                else if (Input.GetKeyDown(KeyCode.Escape))
-                {
-                    SelectedStageIndex = 0;
-                    SceneManager.LoadScene("Lobby");
-                }
+                Time.timeScale = 0;
+                GamePause.SetActive(true);
             }
+        }
+
+        // 전역에서 접근 가능한 모든 스테이지 클리어 시 발동하는 Bool 함수
+        public static bool isAllClear = false;
+        public void GameCountinue()
+        {
+            isAllClear = false;
+            SelectedStageIndex++;
+            SceneManager.LoadScene("MainGame");
+
+            if (SelectedStageIndex >= Maps.Length)
+            {
+                // 모든 스테이지 클리어 시 로비로
+                isAllClear = true;
+                SceneManager.LoadScene("Lobby");
+            }
+        }
+        public void GameEnd()
+        {
+            SceneManager.LoadScene("Lobby");
+        }
+
+        public void TheGamePause()
+        {
+            Time.timeScale = 1;
+            GamePause.SetActive(false);
         }
 
         public void SelectWeapon(Player.WeaponTypes weaponType)
@@ -217,5 +218,40 @@ namespace _2DTopDown
             currentScore += Point;
             ScoreTxt.text = $"Score: {currentScore}";
         }
+
+        // * 백업용 *
+        // R키로 통합해서 마지막 스테이지까지 클리어하면 메인화면으로 가고 엔딩으로 가는 연출을
+        // 할 예정이었으나 키가 겹치는 문제점인지 로비로 가지 못해 결국 버튼식으로 철저하게 분리하는
+        // 방향으로 가기로 결정.
+        //if(gameClear == true)
+        //{
+        //    if (Input.GetKeyDown(KeyCode.R))
+        //    {
+        //        // [디버깅 로그] 현재 상태를 콘솔창에서 확인하기 위함
+        //        Debug.Log($"[Clear] 현재 인덱스: {SelectedStageIndex}, 총 맵 수: {Maps.Length}");
+
+        //        // 1. 현재 맵이 마지막 맵(인덱스 2)인지 확인
+        //        // Maps.Length가 3이면, Maps.Length - 1은 2입니다.
+        //        if (SelectedStageIndex >= Maps.Length - 1)
+        //        {
+        //            Debug.Log("마지막 스테이지입니다. 로비로 이동합니다.");
+
+        //            // [중요] 다음 게임을 위해 인덱스를 0으로 초기화하고 로비로 이동
+        //            SceneManager.LoadScene("Lobby");
+        //            SelectedStageIndex = 0;
+        //        }
+        //        else
+        //        {
+        //            // 2. 아직 다음 맵이 남아있다면 인덱스 증가 후 재시작
+        //            SelectedStageIndex++;
+        //            SceneManager.LoadScene("MainGame");
+        //        }
+        //    }
+        //    else if (Input.GetKeyDown(KeyCode.Escape))
+        //    {
+        //        SelectedStageIndex = 0;
+        //        SceneManager.LoadScene("Lobby");
+        //    }
+        //}
     }
 }

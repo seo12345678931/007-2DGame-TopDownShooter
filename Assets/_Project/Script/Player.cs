@@ -297,12 +297,17 @@ namespace _2DTopDown
             // 2. 새로운 무기를 먹은 경우
             currentItemWeaponType = type;
 
-            // 무기 종류에 맞는 Max치를 미리 계산해서 보관함에 먼저 넣어줍니다.
+            // 무기 종류에 맞는 Max치를 미리 계산해서 보관함에 먼저 넣기
             UpdateItemWeaponMaxStats();
             ItemWeaponAmmo_Current = AmmoCount_Max;
 
+            // 실제 발사에 쓰이는 AmmoCount를 새 무기의 탄약수로 덮어씌움
+            AmmoCount = ItemWeaponAmmo_Current;
+
             // 3. 이제 무기 외형을 바꿉니다. (SetWeapon 내에서 보관함 값을 로드함)
             SetWeapon(WeaponTypes.ItemWeapon);
+
+            UpdateAmmoUI();
         }
 
         // 무기세팅
@@ -310,8 +315,8 @@ namespace _2DTopDown
         {
             if (weaponType != CurrWeapon)
             {
-                // 무기 교체 전 현재 쓰던 무기의 탄약을 먼저 저장하기
-                SaveCurrentAmmo();
+                SaveCurrentAmmo(); // 1. 현재 무기 탄수 저장
+                CurrWeapon = weaponType; // 2. 무기 교체
 
                 CurrWeapon = weaponType;
                 Anim.SetTrigger("WeaponChange");
@@ -319,8 +324,6 @@ namespace _2DTopDown
                 {
                     case WeaponTypes.Knife:
                         Anim.SetInteger("WeaponType", 0);
-                        AmmoCount_Max = 0;
-                        AmmoCount = 0;
                         break;
                     case WeaponTypes.Pistol:
                         Anim.SetInteger("WeaponType", 1);

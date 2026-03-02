@@ -1,6 +1,5 @@
 using TMPro;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 namespace _2DTopDown
 {
@@ -22,21 +21,6 @@ namespace _2DTopDown
             ClearTimeTxt.text = $"{minutes}분 {seconds}초";
             KillCountTxt.text = $"{GameManager_Project.instance.KillCount}명";
             ScoreTxt.text = $"{GameManager_Project.instance.currentScore}점";
-        }
-
-        // Update is called once per frame
-        private void Update()
-        {
-            if (Input.GetKeyDown(KeyCode.R))
-            {
-                SceneManager.LoadScene("MainGame");
-                Player.instance.Anim.transform.parent = null;
-                this.enabled = false;
-                Player.instance.rb.isKinematic = true;
-                Vector3 pos = Player.instance.Anim.transform.position;
-                pos.y = 0.2f;
-                Player.instance.Anim.transform.position = pos;
-            }
         }
     }
 }
