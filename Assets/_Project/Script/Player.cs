@@ -82,6 +82,8 @@ namespace _2DTopDown
         public float ItemWeaponAmmo_Current;
         public float AmmoCount;
         public float AmmoCount_Max;
+        public float AmmoCount_Item;
+        public float AmmoCount_Max_Item;
 
         // 발사간격 제어. 무기별로 발사속도를 제어할 예정이므로 지역변수로 설정하고 0으로 초기화.
         private float fireRate = 0f;    // 총알 사이의 시간 간격 (낮을수록 빠름)
@@ -288,8 +290,8 @@ namespace _2DTopDown
             if (currentItemWeaponType == type)
             {
                 UpdateItemWeaponMaxStats(); // 현재 타입의 Max값을 먼저 가져옴
-                ItemWeaponAmmo_Current = AmmoCount_Max; // 보관함 가득 채움
-                AmmoCount = ItemWeaponAmmo_Current; // 현재 탄약 적용
+                ItemWeaponAmmo_Current = AmmoCount_Max_Item; // 보관함 가득 채움
+                AmmoCount_Item = ItemWeaponAmmo_Current; // 현재 탄약 적용
                 UpdateAmmoUI();
                 return;
             }
@@ -299,10 +301,10 @@ namespace _2DTopDown
 
             // 무기 종류에 맞는 Max치를 미리 계산해서 보관함에 먼저 넣기
             UpdateItemWeaponMaxStats();
-            ItemWeaponAmmo_Current = AmmoCount_Max;
+            ItemWeaponAmmo_Current = AmmoCount_Max_Item;
 
             // 실제 발사에 쓰이는 AmmoCount를 새 무기의 탄약수로 덮어씌움
-            AmmoCount = ItemWeaponAmmo_Current;
+            AmmoCount_Item = ItemWeaponAmmo_Current;
 
             // 3. 이제 무기 외형을 바꿉니다. (SetWeapon 내에서 보관함 값을 로드함)
             SetWeapon(WeaponTypes.ItemWeapon);
@@ -332,7 +334,7 @@ namespace _2DTopDown
                         break;
                     case WeaponTypes.ItemWeapon:
                         UpdateItemWeaponMaxStats();
-                        AmmoCount = ItemWeaponAmmo_Current;
+                        AmmoCount_Item = ItemWeaponAmmo_Current;
                         break;
                 }
                 UpdateAmmoUI();
@@ -348,23 +350,23 @@ namespace _2DTopDown
             switch (currentItemWeaponType)
             {
                 case Item.ItemTypes.Rifle:
-                    AmmoCount_Max = 20;
+                    AmmoCount_Max_Item = 20;
                     Anim.SetInteger("WeaponType", 2);
                     break;
                 case Item.ItemTypes.Shotgun:
-                    AmmoCount_Max = 8;
+                    AmmoCount_Max_Item = 8;
                     Anim.SetInteger("WeaponType", 3);
                     break;
                 case Item.ItemTypes.SMGSD:
-                    AmmoCount_Max = 20;
+                    AmmoCount_Max_Item = 20;
                     Anim.SetInteger("WeaponType", 4);
                     break;
                 case Item.ItemTypes.DMR:
-                    AmmoCount_Max = 9;
+                    AmmoCount_Max_Item = 9;
                     Anim.SetInteger("WeaponType", 5);
                     break;
                 default:
-                    AmmoCount_Max = 0;
+                    AmmoCount_Max_Item = 0;
                     Anim.SetInteger("WeaponType", 0);
                     break;
             }
@@ -379,17 +381,22 @@ namespace _2DTopDown
             }
             else if (CurrWeapon == WeaponTypes.ItemWeapon)
             {
-                ItemWeaponAmmo_Current = AmmoCount;
+                ItemWeaponAmmo_Current = AmmoCount_Item;
             }
         }
 
         // UI 로직 최적화
         private void UpdateAmmoUI()
         {
-            if (GameManager_Project.instance != null)
+            if (GameManager_Project.instance != null && CurrWeapon == WeaponTypes.Pistol)
             {
                 GameManager_Project.instance.WeaponAmmoGuage.fillAmount = AmmoCount / AmmoCount_Max;
                 GameManager_Project.instance.WeaponAmmoTxt.text = AmmoCount.ToString();
+            }
+            else if(GameManager_Project.instance != null && CurrWeapon == WeaponTypes.ItemWeapon)
+            {
+                GameManager_Project.instance.WeaponAmmoGuage.fillAmount = AmmoCount_Item / AmmoCount_Max_Item;
+                GameManager_Project.instance.WeaponAmmoTxt.text = AmmoCount_Item.ToString();
             }
         }
 
@@ -441,10 +448,10 @@ namespace _2DTopDown
                 case WeaponTypes.ItemWeapon:
                     if (currentItemWeaponType == Item.ItemTypes.Rifle)
                     {
-                        AmmoCount--;
+                        AmmoCount_Item--;
                         SaveCurrentAmmo();
-                        GameManager_Project.instance.WeaponAmmoGuage.fillAmount = AmmoCount / AmmoCount_Max;
-                        GameManager_Project.instance.WeaponAmmoTxt.text = AmmoCount.ToString();
+                        GameManager_Project.instance.WeaponAmmoGuage.fillAmount = AmmoCount_Item / AmmoCount_Max_Item;
+                        GameManager_Project.instance.WeaponAmmoTxt.text = AmmoCount_Item.ToString();
 
                         CreateMuzzleFlash(1);
 
@@ -460,17 +467,17 @@ namespace _2DTopDown
                         WeaponAttackSFX[2].Play();
 
                         AlertEnemies(1);
-                        if (AmmoCount <= 0)
+                        if (AmmoCount_Item <= 0)
                         {
                             DropWeapon();
                         }
                     }
                     else if (currentItemWeaponType == Item.ItemTypes.Shotgun)
                     {
-                        AmmoCount--;
+                        AmmoCount_Item--;
                         SaveCurrentAmmo();
-                        GameManager_Project.instance.WeaponAmmoGuage.fillAmount = AmmoCount / AmmoCount_Max;
-                        GameManager_Project.instance.WeaponAmmoTxt.text = AmmoCount.ToString();
+                        GameManager_Project.instance.WeaponAmmoGuage.fillAmount = AmmoCount_Item / AmmoCount_Max_Item;
+                        GameManager_Project.instance.WeaponAmmoTxt.text = AmmoCount_Item.ToString();
 
                         CreateMuzzleFlash(2);
 
@@ -488,17 +495,17 @@ namespace _2DTopDown
                         WeaponAttackSFX[3].Play();
 
                         AlertEnemies(2);
-                        if (AmmoCount <= 0)
+                        if (AmmoCount_Item <= 0)
                         {
                             DropWeapon();
                         }
                     }
                     else if (currentItemWeaponType == Item.ItemTypes.SMGSD)
                     {
-                        AmmoCount--;
+                        AmmoCount_Item--;
                         SaveCurrentAmmo();
-                        GameManager_Project.instance.WeaponAmmoGuage.fillAmount = AmmoCount / AmmoCount_Max;
-                        GameManager_Project.instance.WeaponAmmoTxt.text = AmmoCount.ToString();
+                        GameManager_Project.instance.WeaponAmmoGuage.fillAmount = AmmoCount_Item / AmmoCount_Max_Item;
+                        GameManager_Project.instance.WeaponAmmoTxt.text = AmmoCount_Item.ToString();
 
                         CreateMuzzleFlashSD(3);
 
@@ -513,17 +520,17 @@ namespace _2DTopDown
                         WeaponAttackSFX[4].Play();
 
                         AlertEnemiesSD(3);
-                        if (AmmoCount <= 0)
+                        if (AmmoCount_Item <= 0)
                         {
                             DropWeapon();
                         }
                     }
                     else if (currentItemWeaponType == Item.ItemTypes.DMR)
                     {
-                        AmmoCount--;
+                        AmmoCount_Item--;
                         SaveCurrentAmmo();
-                        GameManager_Project.instance.WeaponAmmoGuage.fillAmount = AmmoCount / AmmoCount_Max;
-                        GameManager_Project.instance.WeaponAmmoTxt.text = AmmoCount.ToString();
+                        GameManager_Project.instance.WeaponAmmoGuage.fillAmount = AmmoCount_Item / AmmoCount_Max_Item;
+                        GameManager_Project.instance.WeaponAmmoTxt.text = AmmoCount_Item.ToString();
 
                         CreateMuzzleFlash(1);
 
@@ -537,7 +544,7 @@ namespace _2DTopDown
                         WeaponAttackSFX[5].Play();
 
                         AlertEnemies(4);
-                        if (AmmoCount <= 0)
+                        if (AmmoCount_Item <= 0)
                         {
                             DropWeapon();
                         }

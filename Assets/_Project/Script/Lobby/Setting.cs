@@ -7,79 +7,160 @@ namespace _2DTopDown
 {
     public class Setting : MonoBehaviour
     {
-        public TMP_Dropdown ScreenMode;
+        private const string ScreenModeKey = "Setting.ScreenMode";
+        private const string ResolutionModeKey = "Setting.ResolutionMode";
+        private const string BgmVolumeKey = "Setting.BGMVolume";
+        private const string SfxVolumeKey = "Setting.SFXVolume";
 
-        [Header("BGM Á¦¾î")]
+        private static readonly Vector2Int[] ResolutionOptions =
+        {
+            new Vector2Int(1280, 720),
+            new Vector2Int(1600, 900),
+            new Vector2Int(1920, 1080),
+            new Vector2Int(2560, 1440),
+        };
+
+        public TMP_Dropdown ScreenMode;
+        public TMP_Dropdown ResoultionMode;
+
+        [Header("BGM ì œì–´")]
         public AudioMixer BGM_AudioMixer;
         public Slider BGM_Slider;
 
-        [Header("È¿°úÀ½ Á¦¾î")]
+        [Header("íš¨ê³¼ìŒ ì œì–´")]
         public AudioMixer SFX_AudioMixer;
         public Slider SFX_Slider;
 
-        // Start is called once before the first execution of Update after the MonoBehaviour is created
-        void Start()
+        private void Start()
         {
-            float currentVolume;
-            if (BGM_AudioMixer.GetFloat("BGMVolume", out currentVolume))
+            if (BGM_Slider != null)
             {
-                // dB¸¦ ´Ù½Ã 0~1 »çÀÌÀÇ °ªÀ¸·Î ¿ª»êÇØ¼­ ½½¶óÀÌ´õ¿¡ ³Ö¾îÁÜ
-                BGM_Slider.value = Mathf.Pow(10, currentVolume / 20);
+                BGM_Slider.onValueChanged.AddListener(SetBGMVolume);
             }
-            // ½½¶óÀÌ´õ ÀÌº¥Æ® ¿¬°á
-            BGM_Slider.onValueChanged.AddListener(SetBGMVolume);
 
-            float currentVolume_SFX;
-            if (SFX_AudioMixer.GetFloat("SFXVolume", out currentVolume_SFX))
+            if (SFX_Slider != null)
             {
-                // dB¸¦ ´Ù½Ã 0~1 »çÀÌÀÇ °ªÀ¸·Î ¿ª»êÇØ¼­ ½½¶óÀÌ´õ¿¡ ³Ö¾îÁÜ
-                SFX_Slider.value = Mathf.Pow(10, currentVolume_SFX / 20);
+                SFX_Slider.onValueChanged.AddListener(SetSFXVolume);
             }
-            // ½½¶óÀÌ´õ ÀÌº¥Æ® ¿¬°á
-            SFX_Slider.onValueChanged.AddListener(SetSFXVolume);
+
+            LoadSettings();
         }
 
-        // Update is called once per frame
-        void Update()
+        private void OnDestroy()
         {
+            if (BGM_Slider != null)
+            {
+                BGM_Slider.onValueChanged.RemoveListener(SetBGMVolume);
+            }
 
+            if (SFX_Slider != null)
+            {
+                SFX_Slider.onValueChanged.RemoveListener(SetSFXVolume);
+            }
+        }
+
+        private void LoadSettings()
+        {
+            int savedScreenMode = Mathf.Clamp(PlayerPrefs.GetInt(ScreenModeKey, 0), 0, ScreenMode.options.Count - 1);
+            int savedResolutionMode = Mathf.Clamp(PlayerPrefs.GetInt(ResolutionModeKey, 2), 0, ResolutionOptions.Length - 1);
+            float savedBgmVolume = Mathf.Clamp01(PlayerPrefs.GetFloat(BgmVolumeKey, GetMixerVolumeAsSlider(BGM_AudioMixer, "BGMVolume")));
+            float savedSfxVolume = Mathf.Clamp01(PlayerPrefs.GetFloat(SfxVolumeKey, GetMixerVolumeAsSlider(SFX_AudioMixer, "SFXVolume")));
+
+            ScreenMode.SetValueWithoutNotify(savedScreenMode);
+            ResoultionMode.SetValueWithoutNotify(savedResolutionMode);
+            BGM_Slider.SetValueWithoutNotify(savedBgmVolume);
+            SFX_Slider.SetValueWithoutNotify(savedSfxVolume);
+
+            ApplyScreenMode(savedScreenMode);
+            ApplyResolution(savedResolutionMode, savedScreenMode);
+            ApplyBGMVolume(savedBgmVolume);
+            ApplySFXVolume(savedSfxVolume);
         }
 
         public void OnScreenModeChanged(int index)
         {
-            switch (index)
-            {
-                case 0: // ÀüÃ¼ È­¸é (ÀüÃ¼ È­¸é Ã¢ ¸ðµå)
-                    Screen.fullScreenMode = FullScreenMode.FullScreenWindow;
-                    Debug.Log("È­¸é ¸ðµå: ÀüÃ¼ È­¸é");
-                    break;
-                case 1: // Ã¢ ¸ðµå
-                    Screen.fullScreenMode = FullScreenMode.Windowed;
-                    Debug.Log("È­¸é ¸ðµå: Ã¢ ¸ðµå");
-                    break;
-                case 2:
-                    Screen.fullScreenMode = FullScreenMode.ExclusiveFullScreen;
-                    Debug.Log("È­¸é ¸ðµå: Å×µÎ¸® ¾ø´Â Ã¢ ¸ðµå");
-                    break;
-            }
+            int clampedIndex = Mathf.Clamp(index, 0, ScreenMode.options.Count - 1);
+
+            ApplyScreenMode(clampedIndex);
+            ApplyResolution(ResoultionMode.value, clampedIndex);
+
+            PlayerPrefs.SetInt(ScreenModeKey, clampedIndex);
+            PlayerPrefs.Save();
         }
 
-        // º¼·ý Á¶Àý ·ÎÁ÷
+        public void OnresoultionModeChanged(int index)
+        {
+            int clampedIndex = Mathf.Clamp(index, 0, ResolutionOptions.Length - 1);
+
+            ApplyResolution(clampedIndex, ScreenMode.value);
+
+            PlayerPrefs.SetInt(ResolutionModeKey, clampedIndex);
+            PlayerPrefs.Save();
+        }
+
         public void SetBGMVolume(float volume)
         {
-            // ½½¶óÀÌ´õ °ª(0.0001 ~ 1)À» ·Î±× ÇÔ¼ö¸¦ ÀÌ¿ëÇØ µ¥½Ãº§(-80dB ~ 0dB)·Î º¯È¯
-            // 0ÀÏ ¶§ ·Î±×¸¦ ÃëÇÏ¸é ¿¡·¯°¡ ³ª¹Ç·Î ÃÖ¼Ò°ªÀ» ¾ÆÁÖ ÀÛ°Ô ¼³Á¤ÇÕ´Ï´Ù.
-            float dB = Mathf.Log10(Mathf.Max(0.0001f, volume)) * 20;
+            float clampedVolume = Mathf.Clamp01(volume);
 
-            BGM_AudioMixer.SetFloat("BGMVolume", dB);
+            ApplyBGMVolume(clampedVolume);
+
+            PlayerPrefs.SetFloat(BgmVolumeKey, clampedVolume);
+            PlayerPrefs.Save();
         }
+
         public void SetSFXVolume(float volume)
         {
-            // ½½¶óÀÌ´õ °ª(0.0001 ~ 1)À» ·Î±× ÇÔ¼ö¸¦ ÀÌ¿ëÇØ µ¥½Ãº§(-80dB ~ 0dB)·Î º¯È¯
-            // 0ÀÏ ¶§ ·Î±×¸¦ ÃëÇÏ¸é ¿¡·¯°¡ ³ª¹Ç·Î ÃÖ¼Ò°ªÀ» ¾ÆÁÖ ÀÛ°Ô ¼³Á¤ÇÕ´Ï´Ù.
-            float dB = Mathf.Log10(Mathf.Max(0.0001f, volume)) * 20;
+            float clampedVolume = Mathf.Clamp01(volume);
 
+            ApplySFXVolume(clampedVolume);
+
+            PlayerPrefs.SetFloat(SfxVolumeKey, clampedVolume);
+            PlayerPrefs.Save();
+        }
+
+        private void ApplyScreenMode(int index)
+        {
+            Screen.fullScreenMode = GetFullScreenMode(index);
+        }
+
+        private void ApplyResolution(int resolutionIndex, int screenModeIndex)
+        {
+            int clampedIndex = Mathf.Clamp(resolutionIndex, 0, ResolutionOptions.Length - 1);
+            Vector2Int resolution = ResolutionOptions[clampedIndex];
+
+            Screen.SetResolution(resolution.x, resolution.y, GetFullScreenMode(screenModeIndex));
+        }
+
+        private void ApplyBGMVolume(float volume)
+        {
+            float dB = Mathf.Log10(Mathf.Max(0.0001f, volume)) * 20f;
+            BGM_AudioMixer.SetFloat("BGMVolume", dB);
+        }
+
+        private void ApplySFXVolume(float volume)
+        {
+            float dB = Mathf.Log10(Mathf.Max(0.0001f, volume)) * 20f;
             SFX_AudioMixer.SetFloat("SFXVolume", dB);
+        }
+
+        private static FullScreenMode GetFullScreenMode(int index)
+        {
+            return index switch
+            {
+                1 => FullScreenMode.Windowed,
+                2 => FullScreenMode.ExclusiveFullScreen,
+                _ => FullScreenMode.FullScreenWindow,
+            };
+        }
+
+        private static float GetMixerVolumeAsSlider(AudioMixer mixer, string parameterName)
+        {
+            if (!mixer.GetFloat(parameterName, out float currentVolume))
+            {
+                return 1f;
+            }
+
+            return Mathf.Clamp01(Mathf.Pow(10f, currentVolume / 20f));
         }
     }
 }

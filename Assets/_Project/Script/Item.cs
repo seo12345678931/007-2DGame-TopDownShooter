@@ -56,7 +56,7 @@ namespace _2DTopDown
         {
             // 해당 무기의 탄약이 가득 차있거나 이미 획득했다면 함수 빠져나오기
             if (Player.instance.currentItemWeaponType == itemTypes && 
-        Player.instance.AmmoCount >= Player.instance.AmmoCount_Max)
+        Player.instance.AmmoCount_Item >= Player.instance.AmmoCount_Max_Item)
             {
                 return;
             }
