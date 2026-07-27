@@ -98,7 +98,7 @@ InitTestScene*.unity*
 # Auto-generated scenes by play mode tests
 /[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
 
-# 내 프로젝트는 공유하면 안되는 리소스가 있습니다.
-# 전체 프로젝트가 필요하신 경우 직접 연락 바랍니다.
+# 이 프로젝트는 공유하면 안되는 리소스인 외부에셋이 있습니다. (GitIgnore)
+# 외부 에셋까지 필요하신 경우 이메일을 통해서 직접 연락 바랍니다.
 /Assets/GitIgnore/*
 /Assets/GitIgnore.meta

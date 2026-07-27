@@ -1,4 +1,5 @@
 using System.Collections;
+using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -6,6 +7,9 @@ namespace _2DTopDown
 {
     public class Lobby : MonoBehaviour
     {
+        [Header("게임버전 표시")]
+        public TMP_Text gameVersionText;
+        
         [Header("처음에 게임진입 시 표시할 메인타이틀")]
         public GameObject MainTitle;
 
@@ -20,6 +24,7 @@ namespace _2DTopDown
 
         [Header("게임엔딩 출력")]
         public GameObject Ending;
+        public TMP_Text endingSecText;
 
         [Header("연출 애니메이션 제어")]
         public Animator Title_Anim;
@@ -33,6 +38,9 @@ namespace _2DTopDown
         public void Start()
         {
             Time.timeScale = 1f;
+
+            if (gameVersionText != null)
+                gameVersionText.text = $"v{Application.version}";
 
             MainTitle.SetActive(true);
             SelectMenu.SetActive(false);
@@ -60,8 +68,21 @@ namespace _2DTopDown
         }
         public IEnumerator IsEnding()
         {
+            const int endingDelaySec = 3;
+
             Ending.SetActive(true);
-            yield return new WaitForSeconds(3);
+
+            for (int sec = endingDelaySec; sec > 0; sec--)
+            {
+                if (endingSecText != null)
+                    endingSecText.text = $"<color=#A49255>{sec}초 후</color> 초기화면으로 돌아옵니다.";
+
+                yield return new WaitForSeconds(1f);
+            }
+
+            if (endingSecText != null)
+                endingSecText.text = string.Empty;
+
             Ending.SetActive(false);
         }
 
