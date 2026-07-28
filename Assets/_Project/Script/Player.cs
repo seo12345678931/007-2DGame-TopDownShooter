@@ -239,7 +239,12 @@ namespace _2DTopDown
             }
         }
 
-        private float cameraShiftSpeed = 5f; // 카메라 이동 부드러움 정도
+        [SerializeField] private float cameraShiftAmount = 0.1f;
+        [SerializeField] private float cameraShiftSmoothTime = 0.3f;
+        [SerializeField] private float cameraShiftMaxSpeed = 0.35f;
+        [SerializeField] private float cameraShiftDeadZone = 0.5f;
+        [SerializeField] private float cameraShiftFullDistance = 6f;
+        private Vector2 cameraShiftVelocity;
         // 마우스 포인터
         public void UpdateAim()
         {
@@ -258,29 +263,36 @@ namespace _2DTopDown
             // 2. 시네머신 Screen Position 제어 로직
             if (composer != null)
             {
-                // 참고: 시네머신 Screen Y는 아래로 갈수록 값이 커지므로 위를 보려면 값을 줄여야 할 수도 있습니다.
-
-                // 기본값
-                float targetX = 0f;
-                float targetY = 0f;
-
-                // 마우스가 플레이어보다 왼쪽에 있으면 (deltaX < 0)
-                // 캐릭터를 오른쪽으로 밀어서 왼쪽 시야를 더 확보 (Screen X 증가)
-                if (deltaX < 0) targetX = 0f + 0.1f;
-                else targetX = 0f - 0.1f;
-
-                // 마우스가 플레이어보다 위쪽에 있으면 (deltaZ > 0)
-                // 캐릭터를 아래쪽으로 밀어서 위쪽 시야를 더 확보 (Screen Y 증가)
-                if (deltaZ > 0) targetY = 0f + 0.1f;
-                else targetY = 0f - 0.1f;
-
-                // 부드러운 카메라 이동을 위해 Lerp 사용
+                Vector2 targetPos = GetAimCameraScreenPosition(deltaX, deltaZ);
                 Vector2 currentPos = composer.Composition.ScreenPosition;
-                currentPos.x = Mathf.Lerp(currentPos.x, targetX, Time.deltaTime * cameraShiftSpeed);
-                currentPos.y = Mathf.Lerp(currentPos.y, targetY, Time.deltaTime * cameraShiftSpeed);
+                currentPos = Vector2.SmoothDamp(
+                    currentPos,
+                    targetPos,
+                    ref cameraShiftVelocity,
+                    cameraShiftSmoothTime,
+                    cameraShiftMaxSpeed,
+                    Time.deltaTime);
 
                 composer.Composition.ScreenPosition = currentPos;
             }
+        }
+
+        // 현재 조준 방향을 기준으로 부드러운 카메라 화면 오프셋을 계산.
+        private Vector2 GetAimCameraScreenPosition(float deltaX, float deltaZ)
+        {
+            Vector2 aimDelta = new Vector2(deltaX, deltaZ);
+            float aimDistance = aimDelta.magnitude;
+
+            if (aimDistance <= cameraShiftDeadZone)
+                return Vector2.zero;
+
+            float fullDistance = Mathf.Max(cameraShiftDeadZone + 0.01f, cameraShiftFullDistance);
+            float shiftStrength = Mathf.InverseLerp(cameraShiftDeadZone, fullDistance, aimDistance);
+            Vector2 aimDirection = aimDelta / aimDistance;
+
+            return new Vector2(
+                -aimDirection.x * cameraShiftAmount * shiftStrength,
+                aimDirection.y * cameraShiftAmount * shiftStrength);
         }
 
         // 아이템 습득 시 호출될 함수 추가
