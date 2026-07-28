@@ -5,15 +5,12 @@ namespace _2DTopDown
 {
     public enum Enemy_EnemyState
     {
-        IDLE_STATIC,
-        IDLE_ROAMER,
-        IDLE_PATROL,
-        INSPECT,
-        ATTACK,
-        FIND_WEAPON,
-        KNOCKED_OUT,
-        DEAD,
-        NONE
+        IDLE_STATIC = 0,
+        IDLE_ROAMER = 1,
+        IDLE_PATROL = 2,
+        INSPECT = 3,
+        ATTACK = 4,
+        NONE = 8
     }
     public enum Enemy_WeaponType
     {
@@ -126,7 +123,7 @@ namespace _2DTopDown
 
         public void Update()
         {
-            if (currentState == Enemy_EnemyState.DEAD || currentState == Enemy_EnemyState.NONE) return;
+            if (currentState == Enemy_EnemyState.NONE) return;
 
             _updateState();
 
@@ -171,6 +168,12 @@ namespace _2DTopDown
                         _updateState = StateUpdate_None;
                         _endState = StateEnd_None;
                         break;
+                    default:
+                        newState = Enemy_EnemyState.NONE;
+                        _initState = StateInit_None;
+                        _updateState = StateUpdate_None;
+                        _endState = StateEnd_None;
+                        break;
                 }
                 _initState();
                 currentState = newState;
@@ -195,7 +198,7 @@ namespace _2DTopDown
 
         }
 
-        ///////////////////////////////////////////////////////// STATE: IDLE STATIC
+        // 상태: 제자리에 대기
         private void StateInit_IdleStatic()
         {
             navMeshAgent.SetDestination(startingPos);
@@ -210,7 +213,7 @@ namespace _2DTopDown
 
         }
 
-        ///////////////////////////////////////////////////////// STATE: IDLE PATROL
+        // 상태: 순찰
         private void StateInit_IdlePatrol()
         {
             navMeshAgent.speed = 6.0f;
@@ -230,7 +233,7 @@ namespace _2DTopDown
 
         }
 
-        ///////////////////////////////////////////////////////// STATE: IDLE ROAMER
+        // 상태: 랜덤 배회해서 이동
         Misc_Timer idleTimer = new Misc_Timer();
         Misc_Timer idleRotateTimer = new Misc_Timer();
         bool idleWaiting, idleMoving;
@@ -323,7 +326,7 @@ namespace _2DTopDown
             navMeshAgent.SetDestination(hit.point);
         }
 
-        ///////////////////////////////////////////////////////// STATE: INSPECT
+        // 상태: Raycast가 감지되면 수색/조사
         Misc_Timer inspectTimer = new Misc_Timer();
         Misc_Timer inspectTurnTimer = new Misc_Timer();
         bool inspectWait;
@@ -368,7 +371,7 @@ namespace _2DTopDown
 
         }
 
-        ///////////////////////////////////////////////////////// STATE: ATTACK
+        // 상태: 교전
         Misc_Timer attackActionTimer = new Misc_Timer();
         bool actionDone;
         private void StateInit_Attack()
@@ -417,7 +420,7 @@ namespace _2DTopDown
                     break;
                 case Enemy_WeaponType.SMG:
                     CreateMuzzleFlash(0);
-                    GameObject bullet = Instantiate(proyectilePrefab[0], weaponPivot[1].position, weaponPivot[1].rotation);
+                    GameObject bullet = BulletPool.Spawn(proyectilePrefab[0], weaponPivot[1].position, weaponPivot[1].rotation);
                     bullet.transform.Rotate(0, Random.Range(-7.5f, 7.5f), 0);
                     WeaponFiringSFX[1].Play();
                     break;
@@ -425,14 +428,14 @@ namespace _2DTopDown
                     CreateMuzzleFlash(1);
                     for (int i = 0; i < 5; i++)
                     {
-                        GameObject birdshot = Instantiate(proyectilePrefab[1], weaponPivot[0].position, weaponPivot[0].rotation);
+                        GameObject birdshot = BulletPool.Spawn(proyectilePrefab[1], weaponPivot[0].position, weaponPivot[0].rotation);
                         birdshot.transform.Rotate(0, Random.Range(-15, 15), 0);
                     }
                     WeaponFiringSFX[2].Play();
                     break;
                 case Enemy_WeaponType.LMG:
                     CreateMuzzleFlash(0);
-                    GameObject bullet_LMG = Instantiate(proyectilePrefab[2], weaponPivot[2].position, weaponPivot[2].rotation);
+                    GameObject bullet_LMG = BulletPool.Spawn(proyectilePrefab[2], weaponPivot[2].position, weaponPivot[2].rotation);
                     bullet_LMG.transform.Rotate(0, Random.Range(-3.5f, 3.5f), 0);
                     WeaponFiringSFX[3].Play();
                     break;
@@ -464,7 +467,7 @@ namespace _2DTopDown
             }
         }
 
-        ////////////////////////// MISC FUNCTIONS //////////////////////////
+        // 랜덤 배회에 관련된 메소드
         private void RandomRotate()
         {
             float randomAngle = Random.Range(45, 180);

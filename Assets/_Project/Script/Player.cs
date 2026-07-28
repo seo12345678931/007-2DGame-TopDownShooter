@@ -440,7 +440,7 @@ namespace _2DTopDown
                     CreateMuzzleFlash(0);
 
                     // 투사체 발사
-                    GameObject bullet = Instantiate(projectilePrefab[0], FireArmsPivot[0].position, FireArmsPivot[0].rotation) as GameObject;
+                    GameObject bullet = BulletPool.Spawn(projectilePrefab[0], FireArmsPivot[0].position, FireArmsPivot[0].rotation);
                     bullet.transform.LookAt(mousePointer.transform);
                     bullet.transform.Rotate(0, Random.Range(-5.5f, 5.5f), 0);
 
@@ -468,7 +468,7 @@ namespace _2DTopDown
                         CreateMuzzleFlash(1);
 
                         // 라이플 공격: 자동 연사 (Update에서 GetMouseButton 처리 중)
-                        GameObject bulletAR = Instantiate(projectilePrefab[1], FireArmsPivot[1].position, FireArmsPivot[1].rotation);
+                        GameObject bulletAR = BulletPool.Spawn(projectilePrefab[1], FireArmsPivot[1].position, FireArmsPivot[1].rotation);
                         bulletAR.transform.LookAt(mousePointer.transform);
                         bulletAR.transform.Rotate(0, Random.Range(-3f, 3f), 0); // 라이플은 권총보다 반동 적게 설정
 
@@ -496,7 +496,7 @@ namespace _2DTopDown
                         // 샷건 공격: 한 번에 여러 발 발사(벅샷)
                         for (int i = 0; i < 3; i++)
                         {
-                            GameObject birdshot = Instantiate(projectilePrefab[2], FireArmsPivot[2].position, FireArmsPivot[2].rotation);
+                            GameObject birdshot = BulletPool.Spawn(projectilePrefab[2], FireArmsPivot[2].position, FireArmsPivot[2].rotation);
                             birdshot.transform.LookAt(mousePointer.transform);
                             birdshot.transform.Rotate(0, Random.Range(-10f, 10f), 0); // 산탄 범위 넓게
                         }
@@ -521,7 +521,7 @@ namespace _2DTopDown
 
                         CreateMuzzleFlashSD(3);
 
-                        GameObject bulletAR = Instantiate(projectilePrefab[0], FireArmsPivot[1].position, FireArmsPivot[1].rotation);
+                        GameObject bulletAR = BulletPool.Spawn(projectilePrefab[0], FireArmsPivot[1].position, FireArmsPivot[1].rotation);
                         bulletAR.transform.LookAt(mousePointer.transform);
                         bulletAR.transform.Rotate(0, Random.Range(-2.7f, 2.7f), 0);
 
@@ -546,7 +546,7 @@ namespace _2DTopDown
 
                         CreateMuzzleFlash(1);
 
-                        GameObject bulletDMR = Instantiate(projectilePrefab[3], FireArmsPivot[4].position, FireArmsPivot[4].rotation);
+                        GameObject bulletDMR = BulletPool.Spawn(projectilePrefab[3], FireArmsPivot[4].position, FireArmsPivot[4].rotation);
                         bulletDMR.transform.LookAt(mousePointer.transform);
                         bulletDMR.transform.Rotate(0, Random.Range(-1.5f, 1.5f), 0);
 

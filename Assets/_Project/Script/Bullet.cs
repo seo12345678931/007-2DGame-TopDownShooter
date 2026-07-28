@@ -4,15 +4,15 @@ namespace _2DTopDown
 {
     public class Bullet : MonoBehaviour
     {
-        // 플레이어, 적 총알을 이 스크립트를 통일하고 확실한 구분을 위해 Enum으로 구분하기
-        public enum Target 
-        { 
-            Player, 
+        public enum Target
+        {
+            Player,
             Enemy
         }
+
         public Target TriggerTarget;
 
-        [Header("LifeTime이 지나면 총알 삭제")]
+        [Header("LifeTime이 지나면 총알 반환")]
         public float LifeTime;
 
         [Header("투사체 속도")]
@@ -21,40 +21,95 @@ namespace _2DTopDown
         [Header("투사체 피해량")]
         public float Damage;
 
-        // 총알 발사를 위한 bool 함수 코드만 제어를 하기 위해 지역변수로 설정함
         private bool isMoving;
+        private Rigidbody bulletRigidbody;
+        private Collider bulletCollider;
 
-        private void Start()
+        public GameObject SourcePrefab { get; private set; }
+        public bool IsReleased { get; private set; }
+
+        public void SetSourcePrefab(GameObject sourcePrefab)
         {
-            isMoving = true;
-            Destroy(gameObject, LifeTime);  // 총알 삭제 ( 지정된 LifeTime이 지나면 )
+            SourcePrefab = sourcePrefab;
         }
 
-        // Update is called once per frame
+        public void MarkReleased()
+        {
+            IsReleased = true;
+            CancelInvoke(nameof(ReturnToPool));
+        }
+
+        private void Awake()
+        {
+            bulletRigidbody = GetComponent<Rigidbody>();
+            bulletCollider = GetComponent<Collider>();
+        }
+
+        private void OnEnable()
+        {
+            IsReleased = false;
+            isMoving = true;
+
+            if (bulletRigidbody != null)
+            {
+                bulletRigidbody.isKinematic = false;
+                bulletRigidbody.linearVelocity = Vector3.zero;
+                bulletRigidbody.angularVelocity = Vector3.zero;
+            }
+
+            if (bulletCollider != null)
+                bulletCollider.enabled = true;
+
+            if (LifeTime > 0f)
+                Invoke(nameof(ReturnToPool), LifeTime);
+        }
+
+        private void OnDisable()
+        {
+            CancelInvoke(nameof(ReturnToPool));
+        }
+
         private void Update()
         {
-            if(isMoving) transform.Translate(transform.forward * speed, Space.World);
+            if (isMoving)
+                transform.Translate(transform.forward * speed, Space.World);
         }
 
         private void OnCollisionEnter(Collision other)
         {
-            if(TriggerTarget == Target.Enemy && other.gameObject.tag == "Enemy" || other.gameObject.tag == "Dummy")
+            if (TriggerTarget == Target.Enemy && (other.gameObject.CompareTag("Enemy") || other.gameObject.CompareTag("Dummy")))
             {
-                other.gameObject.GetComponent<Enemy_Info>().TakeDamage(Damage);
-                Destroy(gameObject);
+                Enemy_Info enemy = other.gameObject.GetComponent<Enemy_Info>();
+                if (enemy != null)
+                    enemy.TakeDamage(Damage);
+
+                ReturnToPool();
             }
-            else if(TriggerTarget == Target.Player && other.gameObject.tag == "Player")
+            else if (TriggerTarget == Target.Player && other.gameObject.CompareTag("Player"))
             {
-                other.gameObject.GetComponent < Player>().DamagePlayer(Damage);
+                Player player = other.gameObject.GetComponent<Player>();
+                if (player != null)
+                    player.DamagePlayer(Damage);
+
+                ReturnToPool();
             }
-            else if (other.gameObject.tag == "Object")
+            else if (other.gameObject.CompareTag("Object"))
             {
-                LifeTime = 0;
-                gameObject.GetComponent<Rigidbody>().isKinematic = true;
-                gameObject.GetComponent<Collider>().enabled = false;
                 isMoving = false;
-                Destroy(gameObject, LifeTime);
+
+                if (bulletRigidbody != null)
+                    bulletRigidbody.isKinematic = true;
+
+                if (bulletCollider != null)
+                    bulletCollider.enabled = false;
+
+                ReturnToPool();
             }
+        }
+
+        private void ReturnToPool()
+        {
+            BulletPool.Release(this);
         }
     }
 }
