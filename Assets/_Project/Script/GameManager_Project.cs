@@ -12,6 +12,7 @@ namespace _2DTopDown
     {
         // 스테이지별 맵에 담을 변수
         public static int SelectedStageIndex = 0;
+        private const string FirstTutorialSeenKey = "FirstTutorialSeen_Map1";
 
         [Header("생성할 맵에 담을 변수")]
         public GameObject[] Maps;
@@ -23,6 +24,11 @@ namespace _2DTopDown
         public TextMeshProUGUI WeaponAmmoTxt;
         public TextMeshProUGUI PistolReload_ArlarmTxt;
 
+        [Header("팝업(첫 튜토리얼)")]
+        public GameObject GameFirstTutorialPanel;
+        public Button CountinueButton_FirstTutorial;
+        public TMP_Text CountinueButtonOpenSecText;
+        
         [Header("팝업(게임오버, 게임 클리어, 일시정지)")]
         public GameObject GameOver;
         public GameObject GameClear;
@@ -73,6 +79,7 @@ namespace _2DTopDown
 
         // 싱글톤 인스턴스 설정
         public static GameManager_Project instance;
+        private bool isFirstTutorialOpen;
         void Awake()
         {
             // 싱글톤 초기화
@@ -96,6 +103,7 @@ namespace _2DTopDown
             GameClear.SetActive(false);
             Scope.gameObject.SetActive(false);
             GamePause.SetActive(false);
+            SetupFirstTutorial();
         }
 
         void Update()
@@ -115,14 +123,78 @@ namespace _2DTopDown
                 }
             }
         
-            if(Input.GetKeyDown(KeyCode.Escape))
+            if(!gameOver && !gameClear && !isFirstTutorialOpen && Input.GetKeyDown(KeyCode.Escape))
             {
                 Time.timeScale = 0;
                 GamePause.SetActive(true);
             }
         }
 
-        // 전역에서 접근 가능한 모든 스테이지 클리어 시 발동하는 Bool 함수
+        // Map1 최초 시작 시 조작 튜토리얼 팝업 제어
+        private void SetupFirstTutorial()
+        {
+            if (GameFirstTutorialPanel != null)
+                GameFirstTutorialPanel.SetActive(false);
+
+            if (CountinueButton_FirstTutorial != null)
+            {
+                CountinueButton_FirstTutorial.interactable = true;
+                CountinueButton_FirstTutorial.onClick.RemoveListener(CloseFirstTutorial);
+                CountinueButton_FirstTutorial.onClick.AddListener(CloseFirstTutorial);
+            }
+
+            if (SelectedStageIndex == 0 && PlayerPrefs.GetInt(FirstTutorialSeenKey, 0) == 0)
+                ShowFirstTutorial();
+        }
+
+        private void ShowFirstTutorial()
+        {
+            if (GameFirstTutorialPanel == null)
+                return;
+
+            isFirstTutorialOpen = true;
+            Time.timeScale = 0f;
+            GameFirstTutorialPanel.SetActive(true);
+
+            if (CountinueButton_FirstTutorial != null)
+            {
+                CountinueButton_FirstTutorial.interactable = false;
+                StartCoroutine(EnableFirstTutorialButton());
+            }
+        }
+
+        private IEnumerator EnableFirstTutorialButton()
+        {
+            const int buttonOpenDelaySec = 3;
+
+            for (int sec = buttonOpenDelaySec; sec > 0; sec--)
+            {
+                if (CountinueButtonOpenSecText != null)
+                    CountinueButtonOpenSecText.text = $"{sec}초 후 버튼 활성화";
+
+                yield return new WaitForSecondsRealtime(1f);
+            }
+
+            if (CountinueButton_FirstTutorial != null)
+                CountinueButton_FirstTutorial.interactable = true;
+
+            if (CountinueButtonOpenSecText != null)
+                CountinueButtonOpenSecText.text = "돌아가기";
+        }
+
+        public void CloseFirstTutorial()
+        {
+            PlayerPrefs.SetInt(FirstTutorialSeenKey, 1);
+            PlayerPrefs.Save();
+
+            isFirstTutorialOpen = false;
+
+            if (GameFirstTutorialPanel != null)
+                GameFirstTutorialPanel.SetActive(false);
+
+            Time.timeScale = 1f;
+        }
+
         public static bool isAllClear = false;
         public void GameCountinue()
         {

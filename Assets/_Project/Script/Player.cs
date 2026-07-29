@@ -119,6 +119,13 @@ namespace _2DTopDown
 
         private void Update()
         {
+            if (!CanProcessGameplayInput())
+            {
+                rb.linearVelocity = Vector3.zero;
+                Anim_Leg.SetBool("isWalk", false);
+                return;
+            }
+
             //  이동조작 및 움직임
             float H = Input.GetAxis("Horizontal");
             float V = Input.GetAxis("Vertical");
@@ -237,6 +244,17 @@ namespace _2DTopDown
             {
                 TryReload();
             }
+        }
+
+        private bool CanProcessGameplayInput()
+        {
+            if (Time.timeScale <= 0f)
+                return false;
+
+            if (GameManager_Project.instance == null)
+                return true;
+
+            return !GameManager_Project.instance.gameOver && !GameManager_Project.instance.gameClear;
         }
 
         [SerializeField] private float cameraShiftAmount = 0.1f;
@@ -415,6 +433,9 @@ namespace _2DTopDown
         bool PistolReload = false; // 권총 재장전 중인지 확인하는 변수
         public void Attack()
         {
+            if (!CanProcessGameplayInput())
+                return;
+
             // 1. 재장전 중이면 공격 함수를 바로 빠져나감 (공격 불가)
             if (PistolReload) return;
 
