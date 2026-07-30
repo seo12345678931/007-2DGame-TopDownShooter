@@ -23,6 +23,7 @@ namespace _2DTopDown
         public TextMeshProUGUI WeaponNameTxt;
         public TextMeshProUGUI WeaponAmmoTxt;
         public TextMeshProUGUI PistolReload_ArlarmTxt;
+        public TMP_Text loadingSecText;
 
         [Header("팝업(첫 튜토리얼)")]
         public GameObject GameFirstTutorialPanel;
@@ -80,6 +81,7 @@ namespace _2DTopDown
         // 싱글톤 인스턴스 설정
         public static GameManager_Project instance;
         private bool isFirstTutorialOpen;
+        private bool isLoadingScene;
         void Awake()
         {
             // 싱글톤 초기화
@@ -103,6 +105,9 @@ namespace _2DTopDown
             GameClear.SetActive(false);
             Scope.gameObject.SetActive(false);
             GamePause.SetActive(false);
+            if (loadingSecText != null)
+                loadingSecText.gameObject.SetActive(false);
+
             SetupFirstTutorial();
         }
 
@@ -110,16 +115,33 @@ namespace _2DTopDown
         {
             TimerTxt.text = TimeSpan.FromSeconds(Time.timeSinceLevelLoad).ToString("mm\\:ss");
 
+            if (isLoadingScene)
+                return;
+
             if (gameOver == true)
             {
                 if(Input.GetKeyDown(KeyCode.R))
                 {
-                    SceneManager.LoadScene("MainGame");
+                    StartCoroutine(LoadSceneWithLoadingText("MainGame"));
                 }
                 else if(Input.GetKeyDown(KeyCode.Escape))
                 {
                     SelectedStageIndex = 0;
-                    SceneManager.LoadScene("Lobby");
+                    StartCoroutine(LoadSceneWithLoadingText("Lobby"));
+                }
+            }
+
+            if (gameClear == true)
+            {
+                if (Input.GetKeyDown(KeyCode.R))
+                {
+                    GameCountinue();
+                    return;
+                }
+                else if (Input.GetKeyDown(KeyCode.Escape))
+                {
+                    GameEnd();
+                    return;
                 }
             }
         
@@ -198,20 +220,66 @@ namespace _2DTopDown
         public static bool isAllClear = false;
         public void GameCountinue()
         {
+            if (isLoadingScene)
+                return;
+
             isAllClear = false;
             SelectedStageIndex++;
-            SceneManager.LoadScene("MainGame");
 
             if (SelectedStageIndex >= Maps.Length)
             {
                 // 모든 스테이지 클리어 시 로비로
                 isAllClear = true;
-                SceneManager.LoadScene("Lobby");
+                StartCoroutine(LoadSceneWithLoadingText("Lobby"));
+                return;
             }
+
+            StartCoroutine(LoadSceneWithLoadingText("MainGame"));
         }
         public void GameEnd()
         {
-            SceneManager.LoadScene("Lobby");
+            if (isLoadingScene)
+                return;
+
+            StartCoroutine(LoadSceneWithLoadingText("Lobby"));
+        }
+
+        private IEnumerator LoadSceneWithLoadingText(string sceneName)
+        {
+            isLoadingScene = true;
+            Time.timeScale = 1f;
+            AsyncOperation loadOperation = SceneManager.LoadSceneAsync(sceneName);
+
+            if (loadingSecText != null)
+            {
+                loadingSecText.gameObject.SetActive(true);
+
+                string[] loadingTexts =
+                {
+                    "배치중..",
+                    "배치중...",
+                    "배치중...."
+                };
+
+                int loadingTextIndex = 0;
+                float nextTextChangeTime = 0f;
+                while (!loadOperation.isDone)
+                {
+                    if (Time.unscaledTime >= nextTextChangeTime)
+                    {
+                        loadingSecText.text = loadingTexts[loadingTextIndex];
+                        loadingTextIndex = (loadingTextIndex + 1) % loadingTexts.Length;
+                        nextTextChangeTime = Time.unscaledTime + 1f;
+                    }
+
+                    yield return null;
+                }
+            }
+            else
+            {
+                while (!loadOperation.isDone)
+                    yield return null;
+            }
         }
 
         public void TheGamePause()

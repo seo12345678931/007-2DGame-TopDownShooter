@@ -10,6 +10,9 @@ namespace _2DTopDown
         [Header("게임버전 표시")]
         public TMP_Text gameVersionText;
         
+        [Header("로딩 텍스트 표시")]
+        public TMP_Text loadingSecText;
+        
         [Header("처음에 게임진입 시 표시할 메인타이틀")]
         public GameObject MainTitle;
 
@@ -34,6 +37,7 @@ namespace _2DTopDown
 
         private CanvasGroup selectMenuCanvasGroup;
         private bool isLoaded = false; // 중복 실행 방지용 플래그
+        private bool isLoadingMainGame;
 
         public void Start()
         {
@@ -46,6 +50,9 @@ namespace _2DTopDown
             SelectMenu.SetActive(false);
             SelectStage.SetActive(false);
             Setting.SetActive(false);
+
+            if (loadingSecText != null)
+                loadingSecText.gameObject.SetActive(false);
 
             if (GameManager_Project.isAllClear)
             {
@@ -160,10 +167,50 @@ namespace _2DTopDown
 
         public void IntoMainGame(int stageIndex)
         {
+            if (isLoadingMainGame)
+                return;
+
             // MainGame씬 로드 전 정적 번호에 할당하여 저장(인덱스 번호로 저장)
             GameManager_Project.SelectedStageIndex = stageIndex;
 
-            SceneManager.LoadScene("MainGame");
+            StartCoroutine(LoadMainGameWithLoadingText());
+        }
+
+        private IEnumerator LoadMainGameWithLoadingText()
+        {
+            isLoadingMainGame = true;
+            AsyncOperation loadOperation = SceneManager.LoadSceneAsync("MainGame");
+
+            if (loadingSecText != null)
+            {
+                loadingSecText.gameObject.SetActive(true);
+
+                string[] loadingTexts =
+                {
+                    "배치중..",
+                    "배치중...",
+                    "배치중...."
+                };
+
+                int loadingTextIndex = 0;
+                float nextTextChangeTime = 0f;
+                while (!loadOperation.isDone)
+                {
+                    if (Time.unscaledTime >= nextTextChangeTime)
+                    {
+                        loadingSecText.text = loadingTexts[loadingTextIndex];
+                        loadingTextIndex = (loadingTextIndex + 1) % loadingTexts.Length;
+                        nextTextChangeTime = Time.unscaledTime + 1f;
+                    }
+
+                    yield return null;
+                }
+            }
+            else
+            {
+                while (!loadOperation.isDone)
+                    yield return null;
+            }
         }
 
         public void IntoSetting()
