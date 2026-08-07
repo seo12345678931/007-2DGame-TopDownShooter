@@ -1,6 +1,7 @@
 # Project TOP_TAC
 
 플레이어를 조작하여 적과 교전하고 무사히 탈출지점까지 도달하는 2D탑다운 시점의 전술 슈팅게임입니다.
+### 다운로드: https://drive.google.com/file/d/1QLfbRGWY47_jBGIAlBCYo6uSkZKHHWvY/view?usp=drive_link
 
 - 게임엔진: Unity 6000.3.10f1
 - 개발인원: 1인 개발
